@@ -16,10 +16,10 @@ interface PreggaAdminDashboardProps {
 
 const sectionTitles: Record<Section, string> = {
   Dashboard: "Dashboard",
-  Users: "Users",
-  Doulas: "Doulas",
+  Users: "User Management",
+  Doulas: "Doula Management",
   "Chat Monitoring": "Chat Monitoring",
-  Settings: "Settings",
+  Settings: "Financials",
 };
 
 export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
@@ -182,36 +182,27 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
         <div
           style={{
             flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
+            overflowY: "auto",
+            overflowX: "hidden",
             background: PreggaColors.bgSecondary,
           }}
         >
-          {/* Header */}
+          {/* Content wrapper with padding */}
           <div
             style={{
-              padding: isMobile ? "16px 16px 0" : "20px 24px 0",
-              flexShrink: 0,
+              padding: isMobile ? "20px 16px" : "24px 32px",
+              minHeight: "100%",
             }}
           >
+            {/* Header scrolls with content */}
             <Header
               title={sectionTitles[section]}
               isMobile={isMobile}
               onMenuClick={() => setSidebarOpen(true)}
               onSearchClick={() => setSearchOpen(true)}
             />
-          </div>
 
-          {/* Scrollable Content */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              overflowX: "hidden",
-              padding: isMobile ? "16px" : "20px 24px 24px",
-            }}
-          >
+            {/* Page Content */}
             {renderView()}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { PreggaColors } from "../../theme/colors";
 
-type BadgeVariant = "success" | "warning" | "danger" | "info" | "neutral" | "primary" | "accent";
+type BadgeVariant = "success" | "warning" | "danger" | "info" | "neutral" | "primary" | "accent" | "sage";
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -44,6 +44,11 @@ const variantStyles: Record<BadgeVariant, { bg: string; color: string; dotColor:
     bg: PreggaColors.accent100,
     color: PreggaColors.accent500,
     dotColor: PreggaColors.accent400,
+  },
+  sage: {
+    bg: PreggaColors.sage100,
+    color: PreggaColors.sage600,
+    dotColor: PreggaColors.sage500,
   },
 };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { PreggaColors, PreggaShadows } from "../../../theme/colors";
-import { KPICard, Card } from "../../ui/Card";
+import { Card } from "../../ui/Card";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import {
@@ -9,9 +9,7 @@ import {
   MessageCircle,
   DollarSign,
   TrendingUp,
-  Clock,
   Star,
-  AlertCircle,
   ArrowRight,
   UserPlus,
   CheckCircle,
@@ -22,7 +20,6 @@ import {
   Area,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
@@ -38,6 +35,9 @@ interface DashboardViewProps {
   isMobile: boolean;
   onNavigate?: (section: string) => void;
 }
+
+// Chart line color - dark navy/slate blue for better visibility
+const chartLineColor = "#1F2937";
 
 export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
   const [chartVisible, setChartVisible] = useState(false);
@@ -60,7 +60,7 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
       case "chat_started":
         return <MessageCircle size={16} />;
       default:
-        return <AlertCircle size={16} />;
+        return <MessageCircle size={16} />;
     }
   };
 
@@ -83,63 +83,48 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* KPI Cards */}
+      {/* KPI Cards - 4 equal columns */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
           gap: 16,
         }}
       >
-        <KPICard
+        <StatCard
           title="Total Users"
-          value={dashboardStats.totalUsers}
-          icon={<Users size={20} />}
-          iconColor={PreggaColors.sage600}
-          iconBg={PreggaColors.sage100}
-          trend="up"
-          trendValue="+12%"
-          subtitle={`${dashboardStats.usersThisMonth} this month`}
-          subtitleIcon={<TrendingUp size={12} />}
+          value={dashboardStats.totalUsers.toLocaleString()}
+          subtitle={`+${dashboardStats.usersThisMonth} this month`}
           subtitleColor={PreggaColors.success600}
-          delay={0}
+          icon={<Users size={20} />}
+          iconBg={PreggaColors.sage100}
+          iconColor={PreggaColors.sage600}
         />
-        <KPICard
+        <StatCard
           title="Active Doulas"
-          value={dashboardStats.activeDoulas}
-          icon={<Heart size={20} />}
-          iconColor={PreggaColors.rose600}
-          iconBg={PreggaColors.rose100}
-          trend="up"
-          trendValue="+8%"
+          value={dashboardStats.activeDoulas.toString()}
           subtitle={`${dashboardStats.pendingVerifications} pending`}
-          subtitleIcon={<Clock size={12} />}
           subtitleColor={PreggaColors.warning600}
-          delay={100}
+          icon={<Heart size={20} />}
+          iconBg={PreggaColors.rose100}
+          iconColor={PreggaColors.rose600}
         />
-        <KPICard
+        <StatCard
           title="Total Chats"
-          value={dashboardStats.totalChats}
-          icon={<MessageCircle size={20} />}
-          iconColor={PreggaColors.primary600}
-          iconBg={PreggaColors.primary100}
+          value={dashboardStats.totalChats.toLocaleString()}
           subtitle={`Avg ${dashboardStats.avgResponseTime}`}
-          subtitleIcon={<Clock size={12} />}
-          delay={200}
+          icon={<MessageCircle size={20} />}
+          iconBg={PreggaColors.primary100}
+          iconColor={PreggaColors.primary600}
         />
-        <KPICard
+        <StatCard
           title="Monthly Revenue"
-          value={dashboardStats.monthlyRevenue}
-          prefix="$"
-          icon={<DollarSign size={20} />}
-          iconColor={PreggaColors.terracotta600}
-          iconBg={PreggaColors.terracotta100}
-          trend="up"
-          trendValue="+18%"
+          value={`$${dashboardStats.monthlyRevenue.toLocaleString()}`}
           subtitle={`${dashboardStats.userSatisfaction}% satisfaction`}
-          subtitleIcon={<Star size={12} />}
-          subtitleColor={PreggaColors.warning600}
-          delay={300}
+          subtitleColor={PreggaColors.success600}
+          icon={<DollarSign size={20} />}
+          iconBg={PreggaColors.terracotta100}
+          iconColor={PreggaColors.terracotta600}
         />
       </div>
 
@@ -147,7 +132,7 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
+          gridTemplateColumns: isMobile ? "1fr" : "3fr 2fr",
           gap: 20,
         }}
       >
@@ -173,26 +158,25 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
               <AreaChart data={userGrowthData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={PreggaColors.sage500} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={PreggaColors.sage500} stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartLineColor} stopOpacity={0.1} />
+                    <stop offset="95%" stopColor={chartLineColor} stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={PreggaColors.primary100} vertical={false} />
                 <XAxis
                   dataKey="day"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: PreggaColors.neutral500 }}
+                  tick={{ fontSize: 12, fill: PreggaColors.neutral400 }}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 12, fill: PreggaColors.neutral500 }}
+                  tick={{ fontSize: 12, fill: PreggaColors.neutral400 }}
                 />
                 <Tooltip
                   contentStyle={{
-                    borderRadius: 10,
-                    border: `1px solid ${PreggaColors.primary100}`,
+                    borderRadius: 8,
+                    border: `1px solid ${PreggaColors.neutral200}`,
                     boxShadow: PreggaShadows.card,
                     fontSize: 13,
                   }}
@@ -200,7 +184,7 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke={PreggaColors.sage500}
+                  stroke={chartLineColor}
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorValue)"
@@ -313,12 +297,12 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
                   justifyContent: "space-between",
                   padding: "12px 14px",
                   borderRadius: 10,
-                  border: `1px solid ${PreggaColors.primary100}`,
+                  border: `1px solid ${PreggaColors.neutral100}`,
                   transition: "border-color 0.12s",
                   cursor: "pointer",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = PreggaColors.primary300)}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = PreggaColors.primary100)}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = PreggaColors.neutral300)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = PreggaColors.neutral100)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div
@@ -374,7 +358,7 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
                   padding: "12px 0",
                   borderBottom:
                     index < recentActivities.length - 1
-                      ? `1px solid ${PreggaColors.primary100}`
+                      ? `1px solid ${PreggaColors.neutral100}`
                       : "none",
                 }}
               >
@@ -416,6 +400,67 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
             ))}
           </div>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+// Stat Card component with even alignment styling
+interface StatCardProps {
+  title: string;
+  value: string;
+  subtitle: string;
+  subtitleColor?: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+}
+
+function StatCard({ title, value, subtitle, subtitleColor, icon, iconBg, iconColor }: StatCardProps) {
+  return (
+    <div
+      style={{
+        background: PreggaColors.white,
+        borderRadius: 16,
+        padding: 20,
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span style={{ fontSize: 13, color: PreggaColors.neutral500, fontWeight: 500 }}>{title}</span>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: iconBg,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: iconColor,
+          }}
+        >
+          {icon}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 32, fontWeight: 600, color: PreggaColors.neutral900, lineHeight: 1 }}>
+          {value}
+        </div>
+        <div style={{ 
+          fontSize: 12, 
+          color: subtitleColor || PreggaColors.neutral500, 
+          marginTop: 4,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+        }}>
+          {subtitleColor && <TrendingUp size={12} />}
+          {subtitle}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { PreggaColors, PreggaShadows } from "../../theme/colors";
+import { PreggaColors } from "../../theme/colors";
 import { AnimNum } from "./AnimNum";
 
 interface CardProps {
@@ -26,9 +26,8 @@ export function Card({ children, title, subtitle, action, style, padding = "20px
     <div
       style={{
         background: PreggaColors.white,
-        borderRadius: 14,
-        border: `1px solid ${PreggaColors.primary100}`,
-        boxShadow: PreggaShadows.card,
+        borderRadius: 16,
+        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
         overflow: "hidden",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(12px)",
@@ -43,7 +42,7 @@ export function Card({ children, title, subtitle, action, style, padding = "20px
             alignItems: "center",
             justifyContent: "space-between",
             padding: "16px 20px",
-            borderBottom: `1px solid ${PreggaColors.primary100}`,
+            borderBottom: `1px solid ${PreggaColors.neutral100}`,
           }}
         >
           <div>
@@ -102,13 +101,11 @@ export function KPICard({
   prefix = "",
   suffix = "",
   subtitle,
-  subtitleIcon,
   subtitleColor,
   icon,
   iconColor,
   iconBg,
   delay = 0,
-  trend,
   trendValue,
 }: KPICardProps) {
   const [visible, setVisible] = useState(delay === 0);
@@ -124,39 +121,52 @@ export function KPICard({
     <div
       style={{
         background: PreggaColors.white,
-        borderRadius: 14,
-        border: `1px solid ${PreggaColors.primary100}`,
-        boxShadow: PreggaShadows.card,
-        padding: "18px 20px",
+        borderRadius: 16,
+        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
+        padding: "24px",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(12px)",
         transition: "all 0.5s cubic-bezier(.16,1,.3,1)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: PreggaColors.neutral500, fontFamily: "'Inter', sans-serif" }}>{title}</div>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            background: iconBg || PreggaColors.primary50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: iconColor || PreggaColors.primary500,
-          }}
-        >
-          {icon}
-        </div>
-      </div>
+      {/* Icon in top right */}
       <div
         style={{
-          fontSize: 32,
-          fontWeight: 700,
+          width: 48,
+          height: 48,
+          borderRadius: 16,
+          background: iconBg || PreggaColors.primary50,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: iconColor || PreggaColors.primary500,
+          marginBottom: 16,
+        }}
+      >
+        {icon}
+      </div>
+      
+      {/* Title */}
+      <div 
+        style={{ 
+          fontSize: 14, 
+          fontWeight: 500,
+          color: PreggaColors.neutral700, 
+          fontFamily: "'Inter', sans-serif",
+          marginBottom: 4,
+        }}
+      >
+        {title}
+      </div>
+      
+      {/* Value */}
+      <div
+        style={{
+          fontSize: 30,
+          fontWeight: 500,
           color: PreggaColors.neutral900,
-          lineHeight: 1,
-          marginBottom: subtitle ? 10 : 0,
+          lineHeight: 1.2,
+          marginBottom: 4,
           fontFamily: "'Inter', sans-serif",
         }}
       >
@@ -164,37 +174,22 @@ export function KPICard({
         {visible ? <AnimNum value={value} duration={1200} /> : 0}
         {suffix}
       </div>
+      
+      {/* Subtitle */}
       {(subtitle || trendValue) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {subtitle && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: 12,
-                color: subtitleColor || PreggaColors.neutral500,
-              }}
-            >
-              {subtitleIcon}
-              {subtitle}
-            </div>
-          )}
+        <div 
+          style={{ 
+            fontSize: 14, 
+            fontWeight: 500,
+            color: subtitleColor || PreggaColors.neutral600,
+          }}
+        >
           {trendValue && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 2,
-                fontSize: 12,
-                fontWeight: 600,
-                color: trend === "up" ? PreggaColors.success600 : PreggaColors.destructive500,
-              }}
-            >
-              <span style={{ fontSize: 10 }}>{trend === "up" ? "▲" : "▼"}</span>
+            <span style={{ marginRight: 4 }}>
               {trendValue}
-            </div>
+            </span>
           )}
+          {subtitle}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PreggaColors } from "../../theme/colors";
-import { Search, Menu, Calendar, RefreshCw, Bell } from "lucide-react";
+import { Search, Menu, Calendar, RefreshCw } from "lucide-react";
 
 interface HeaderProps {
   title: string;
@@ -18,7 +18,7 @@ function formatDate(): string {
     day: "numeric",
     year: "numeric",
   };
-  return now.toLocaleDateString("en-US", options);
+  return now.toLocaleDateString("en-US", options).replace(",", "");
 }
 
 export function Header({
@@ -44,7 +44,7 @@ export function Header({
         justifyContent: "space-between",
         alignItems: "center",
         gap: 12,
-        marginBottom: 20,
+        marginBottom: 24,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -54,8 +54,8 @@ export function Header({
             style={{
               width: 40,
               height: 40,
-              borderRadius: 10,
-              border: `1px solid ${PreggaColors.primary200}`,
+              borderRadius: 8,
+              border: `1px solid ${PreggaColors.neutral200}`,
               background: PreggaColors.white,
               cursor: "pointer",
               display: "flex",
@@ -75,35 +75,29 @@ export function Header({
             color: PreggaColors.neutral900,
             letterSpacing: -0.5,
             margin: 0,
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: "'Inter', sans-serif",
           }}
         >
           {title}
         </h1>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Search */}
         {onSearchClick && (
           <div
             onClick={onSearchClick}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: `1px solid ${PreggaColors.primary200}`,
+              gap: 8,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: `1px solid ${PreggaColors.neutral200}`,
               background: PreggaColors.white,
-              color: PreggaColors.neutral500,
+              color: PreggaColors.neutral400,
               cursor: "pointer",
               fontSize: 14,
-              transition: "border-color 0.15s, box-shadow 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = PreggaColors.primary300;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = PreggaColors.primary200;
             }}
           >
             <Search size={16} />
@@ -112,11 +106,11 @@ export function Header({
               <span
                 style={{
                   fontSize: 11,
-                  padding: "3px 8px",
-                  borderRadius: 5,
-                  background: PreggaColors.primary100,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: PreggaColors.neutral100,
                   color: PreggaColors.neutral500,
-                  marginLeft: 12,
+                  marginLeft: 8,
                   fontWeight: 500,
                 }}
               >
@@ -126,64 +120,22 @@ export function Header({
           </div>
         )}
 
-        {/* Notifications */}
-        <button
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            border: `1px solid ${PreggaColors.primary200}`,
-            background: PreggaColors.white,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            color: PreggaColors.neutral600,
-            position: "relative",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = PreggaColors.primary300;
-            e.currentTarget.style.color = PreggaColors.primary600;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = PreggaColors.primary200;
-            e.currentTarget.style.color = PreggaColors.neutral600;
-          }}
-        >
-          <Bell size={18} />
-          <span
-            style={{
-              position: "absolute",
-              top: 6,
-              right: 6,
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: PreggaColors.rose500,
-              border: `2px solid ${PreggaColors.white}`,
-            }}
-          />
-        </button>
-
         {/* Date Display */}
         {!isMobile && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: `1px solid ${PreggaColors.primary200}`,
+              gap: 8,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: `1px solid ${PreggaColors.neutral200}`,
               background: PreggaColors.white,
               color: PreggaColors.neutral700,
               fontSize: 14,
-              fontWeight: 500,
             }}
           >
-            <Calendar size={16} />
+            <Calendar size={16} style={{ color: PreggaColors.neutral500 }} />
             <span>{formatDate()}</span>
           </div>
         )}
@@ -192,34 +144,21 @@ export function Header({
         <button
           onClick={handleRefresh}
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            border: `1px solid ${PreggaColors.primary200}`,
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            border: `1px solid ${PreggaColors.neutral200}`,
             background: PreggaColors.white,
             cursor: isRefreshing ? "default" : "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            color: isRefreshing ? PreggaColors.primary500 : PreggaColors.neutral600,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            if (!isRefreshing) {
-              e.currentTarget.style.borderColor = PreggaColors.primary300;
-              e.currentTarget.style.color = PreggaColors.primary600;
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isRefreshing) {
-              e.currentTarget.style.borderColor = PreggaColors.primary200;
-              e.currentTarget.style.color = PreggaColors.neutral600;
-            }
+            color: isRefreshing ? PreggaColors.accent500 : PreggaColors.neutral500,
           }}
         >
           <RefreshCw
-            size={18}
+            size={16}
             style={{
               animation: isRefreshing ? "spin 1s linear infinite" : "none",
             }}

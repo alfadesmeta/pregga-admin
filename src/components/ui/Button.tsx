@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PreggaColors, PreggaShadows } from "../../theme/colors";
 import { Loader2 } from "lucide-react";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "accent";
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "accent" | "sage";
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -18,34 +18,34 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: React.CSSProperties }> = {
   primary: {
     base: {
-      background: PreggaColors.primary500,
+      background: PreggaColors.accent500,
       color: PreggaColors.white,
       border: "none",
       boxShadow: PreggaShadows.button,
     },
     hover: {
-      background: PreggaColors.primary600,
+      background: PreggaColors.accent600,
     },
   },
   secondary: {
     base: {
-      background: PreggaColors.primary100,
-      color: PreggaColors.primary700,
+      background: PreggaColors.accent100,
+      color: PreggaColors.accent600,
       border: "none",
     },
     hover: {
-      background: PreggaColors.primary200,
+      background: "rgba(107, 123, 95, 0.15)",
     },
   },
   outline: {
     base: {
       background: "transparent",
-      color: PreggaColors.primary700,
-      border: `1px solid ${PreggaColors.primary200}`,
+      color: PreggaColors.neutral700,
+      border: `1px solid ${PreggaColors.neutral200}`,
     },
     hover: {
-      background: PreggaColors.primary50,
-      borderColor: PreggaColors.primary300,
+      background: PreggaColors.neutral50,
+      borderColor: PreggaColors.neutral300,
     },
   },
   ghost: {
@@ -71,13 +71,24 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
   },
   accent: {
     base: {
-      background: PreggaColors.accent500,
+      background: PreggaColors.terracotta500,
       color: PreggaColors.white,
       border: "none",
-      boxShadow: "0 2px 8px rgba(76, 175, 80, 0.25)",
+      boxShadow: "0 2px 8px rgba(199, 93, 77, 0.25)",
     },
     hover: {
-      background: PreggaColors.accent600,
+      background: PreggaColors.terracotta600,
+    },
+  },
+  sage: {
+    base: {
+      background: PreggaColors.sage500,
+      color: PreggaColors.white,
+      border: "none",
+      boxShadow: "0 2px 8px rgba(107, 127, 108, 0.25)",
+    },
+    hover: {
+      background: PreggaColors.sage600,
     },
   },
 };

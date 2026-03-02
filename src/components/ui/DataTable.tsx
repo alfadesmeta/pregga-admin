@@ -47,8 +47,8 @@ export function DataTable<T extends { id: string | number }>({
     color: PreggaColors.neutral500,
     textTransform: "uppercase",
     letterSpacing: "0.5px",
-    borderBottom: `1px solid ${PreggaColors.primary100}`,
-    background: PreggaColors.cream50,
+    borderBottom: `1px solid ${PreggaColors.neutral100}`,
+    background: PreggaColors.white,
     fontFamily: "'Inter', sans-serif",
   };
 
@@ -56,7 +56,7 @@ export function DataTable<T extends { id: string | number }>({
     padding: "14px 16px",
     fontSize: 14,
     color: PreggaColors.neutral800,
-    borderBottom: `1px solid ${PreggaColors.primary100}`,
+    borderBottom: `1px solid ${PreggaColors.neutral100}`,
     fontFamily: "'Inter', sans-serif",
   };
 
@@ -65,8 +65,8 @@ export function DataTable<T extends { id: string | number }>({
       <div
         style={{
           background: PreggaColors.white,
-          borderRadius: 14,
-          border: `1px solid ${PreggaColors.primary100}`,
+          borderRadius: 16,
+          boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
           overflow: "hidden",
         }}
       >
@@ -75,8 +75,8 @@ export function DataTable<T extends { id: string | number }>({
             style={{
               width: 32,
               height: 32,
-              border: `3px solid ${PreggaColors.primary100}`,
-              borderTopColor: PreggaColors.primary500,
+              border: `3px solid ${PreggaColors.neutral200}`,
+              borderTopColor: PreggaColors.accent500,
               borderRadius: "50%",
               animation: "spin 0.8s linear infinite",
               margin: "0 auto 16px",
@@ -92,8 +92,8 @@ export function DataTable<T extends { id: string | number }>({
     <div
       style={{
         background: PreggaColors.white,
-        borderRadius: 14,
-        border: `1px solid ${PreggaColors.primary100}`,
+        borderRadius: 16,
+        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
         overflow: "hidden",
       }}
     >
@@ -125,7 +125,7 @@ export function DataTable<T extends { id: string | number }>({
                       transition: "background 0.12s",
                     }}
                     onMouseEnter={(e) => {
-                      if (onRowClick) e.currentTarget.style.background = PreggaColors.cream50;
+                      if (onRowClick) e.currentTarget.style.background = PreggaColors.neutral50;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = "transparent";
@@ -141,7 +141,7 @@ export function DataTable<T extends { id: string | number }>({
                             borderBottom:
                               rowIndex === data.length - 1 && !renderExpandedRow
                                 ? "none"
-                                : `1px solid ${PreggaColors.primary100}`,
+                                : `1px solid ${PreggaColors.neutral100}`,
                           }}
                         >
                           {col.render ? col.render(value, row) : String(value ?? "")}
@@ -161,8 +161,8 @@ export function DataTable<T extends { id: string | number }>({
         <div
           style={{
             padding: "12px 16px",
-            borderTop: `1px solid ${PreggaColors.primary100}`,
-            background: PreggaColors.cream50,
+            borderTop: `1px solid ${PreggaColors.neutral100}`,
+            background: PreggaColors.white,
           }}
         >
           <Pagination

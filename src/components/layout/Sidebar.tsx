@@ -5,34 +5,30 @@ import {
   Users,
   Heart,
   MessageCircle,
-  Settings,
+  DollarSign,
   LogOut,
 } from "lucide-react";
 import type { Section } from "../../hooks";
 
 interface NavItem {
   name: Section;
+  label: string;
   icon: React.ElementType;
 }
 
 interface NavSection {
-  label: string;
   items: NavItem[];
 }
 
 const sections: NavSection[] = [
   {
-    label: "MAIN MENU",
     items: [
-      { name: "Dashboard", icon: LayoutDashboard },
-      { name: "Users", icon: Users },
-      { name: "Doulas", icon: Heart },
-      { name: "Chat Monitoring", icon: MessageCircle },
+      { name: "Dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { name: "Users", label: "User Management", icon: Users },
+      { name: "Doulas", label: "Doula Management", icon: Heart },
+      { name: "Chat Monitoring", label: "Chat Monitoring", icon: MessageCircle },
+      { name: "Settings", label: "Financials", icon: DollarSign },
     ],
-  },
-  {
-    label: "SYSTEM",
-    items: [{ name: "Settings", icon: Settings }],
   },
 ];
 
@@ -63,6 +59,7 @@ export function Sidebar({
         flexDirection: "column",
         fontFamily: "'Inter', sans-serif",
         fontSize: 13,
+        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
       }}
     >
       {/* Logo */}
@@ -91,7 +88,7 @@ export function Sidebar({
               width: 40,
               height: 40,
               borderRadius: 10,
-              background: PreggaColors.primary500,
+              background: PreggaColors.terracotta500,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -101,21 +98,21 @@ export function Sidebar({
               fontFamily: "'Playfair Display', serif",
             }}
           >
-            P
+            <Heart size={20} fill={PreggaColors.white} />
           </div>
           <div>
             <div
               style={{
                 fontSize: 20,
                 fontWeight: 600,
-                color: PreggaColors.white,
+                color: PreggaColors.neutral900,
                 fontFamily: "'Playfair Display', serif",
                 letterSpacing: 0.5,
               }}
             >
               Pregga
             </div>
-            <div style={{ fontSize: 11, color: PreggaColors.sidebarText, marginTop: -2 }}>
+            <div style={{ fontSize: 11, color: PreggaColors.neutral500, marginTop: -2 }}>
               Admin Panel
             </div>
           </div>
@@ -128,7 +125,7 @@ export function Sidebar({
               border: "none",
               cursor: "pointer",
               padding: 4,
-              color: PreggaColors.sidebarText,
+              color: PreggaColors.neutral600,
               display: "flex",
             }}
           >
@@ -141,18 +138,6 @@ export function Sidebar({
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
         {sections.map((sec, si) => (
           <div key={si}>
-            <div
-              style={{
-                padding: "20px 8px 10px",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: 1,
-                color: PreggaColors.sidebarText,
-                textTransform: "uppercase",
-              }}
-            >
-              {sec.label}
-            </div>
             {sec.items.map((item) => {
               const isActive = activeSection === item.name;
               const IconComponent = item.icon;
@@ -172,7 +157,7 @@ export function Sidebar({
                     borderRadius: 8,
                     border: "none",
                     background: isActive ? PreggaColors.sidebarActive : "transparent",
-                    color: isActive ? PreggaColors.sidebarTextActive : PreggaColors.sidebarText,
+                    color: isActive ? PreggaColors.sidebarTextActive : PreggaColors.neutral700,
                     fontSize: 14,
                     fontWeight: isActive ? 500 : 400,
                     cursor: "pointer",
@@ -191,10 +176,10 @@ export function Sidebar({
                   <IconComponent
                     size={20}
                     style={{
-                      color: isActive ? PreggaColors.sidebarAccent : PreggaColors.sidebarText,
+                      color: isActive ? PreggaColors.white : PreggaColors.neutral600,
                     }}
                   />
-                  <span style={{ flex: 1 }}>{item.name}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
                 </button>
               );
             })}
@@ -206,7 +191,7 @@ export function Sidebar({
       <div
         style={{
           padding: "16px",
-          borderTop: `1px solid ${PreggaColors.sidebarHover}`,
+          borderTop: `1px solid rgba(0, 0, 0, 0.08)`,
         }}
       >
         <div
@@ -224,7 +209,7 @@ export function Sidebar({
               width: 40,
               height: 40,
               borderRadius: "50%",
-              background: PreggaColors.primary500,
+              background: PreggaColors.accent500,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -233,16 +218,16 @@ export function Sidebar({
               fontWeight: 600,
             }}
           >
-            AU
+            AD
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: PreggaColors.white }}>
+            <div style={{ fontSize: 14, fontWeight: 500, color: PreggaColors.neutral900 }}>
               Admin User
             </div>
             <div
               style={{
                 fontSize: 12,
-                color: PreggaColors.sidebarText,
+                color: PreggaColors.neutral500,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -263,7 +248,7 @@ export function Sidebar({
             borderRadius: 8,
             border: "none",
             background: "transparent",
-            color: PreggaColors.sidebarText,
+            color: PreggaColors.neutral600,
             fontSize: 14,
             cursor: "pointer",
             fontFamily: "inherit",
@@ -274,7 +259,7 @@ export function Sidebar({
           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         >
           <LogOut size={20} />
-          Sign Out
+          Logout
         </button>
       </div>
     </aside>
