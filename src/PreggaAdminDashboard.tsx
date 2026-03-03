@@ -7,7 +7,6 @@ import {
   UsersView,
   DoulasView,
   ChatView,
-  SettingsView,
 } from "./components/views";
 
 interface PreggaAdminDashboardProps {
@@ -19,7 +18,6 @@ const sectionTitles: Record<Section, string> = {
   Users: "User Management",
   Doulas: "Doula Management",
   "Chat Monitoring": "Chat Monitoring",
-  Settings: "Financials",
 };
 
 export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
@@ -27,6 +25,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
   const {
     section,
     subView,
+    navigate,
     navigateToSection,
     navigateToSubView,
     goBack,
@@ -47,6 +46,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+
   const handleSearchSelect = (result: { id: string; type: string }) => {
     if (result.type === "page") {
       const sectionMap: Record<string, Section> = {
@@ -54,7 +54,6 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
         users: "Users",
         doulas: "Doulas",
         chat: "Chat Monitoring",
-        settings: "Settings",
       };
       const targetSection = sectionMap[result.id];
       if (targetSection) {
@@ -63,13 +62,23 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
     }
   };
 
+  const handleNavigateToSectionWithSubView = (targetSection: string, subViewId: string) => {
+    const sectionMap: Record<string, Section> = {
+      "User Management": "Users",
+      "Doula Management": "Doulas",
+    };
+    const mappedSection = sectionMap[targetSection] || (targetSection as Section);
+    // Use navigate to set both section and subView at once
+    navigate({ section: mappedSection, subView: subViewId });
+  };
+
   const renderView = () => {
     switch (section) {
       case "Dashboard":
         return (
           <DashboardView
             isMobile={isMobile}
-            onNavigate={(s) => navigateToSection(s as Section)}
+            onNavigateToSubView={handleNavigateToSectionWithSubView}
           />
         );
       case "Users":
@@ -92,8 +101,6 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
         );
       case "Chat Monitoring":
         return <ChatView isMobile={isMobile} />;
-      case "Settings":
-        return <SettingsView isMobile={isMobile} />;
       default:
         return <DashboardView isMobile={isMobile} />;
     }
@@ -109,6 +116,13 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
         @keyframes modalIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes pageIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .page-transition {
+          animation: pageIn 0.3s ease-out forwards;
         }
         *, *::before, *::after {
           margin: 0;
@@ -202,8 +216,13 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
               onSearchClick={() => setSearchOpen(true)}
             />
 
-            {/* Page Content */}
-            {renderView()}
+            {/* Page Content with transition */}
+            <div
+              key={section + (subView || "")}
+              className="page-transition"
+            >
+              {renderView()}
+            </div>
           </div>
         </div>
       </div>

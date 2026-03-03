@@ -4,8 +4,7 @@ export type Section =
   | "Dashboard" 
   | "Users" 
   | "Doulas" 
-  | "Chat Monitoring" 
-  | "Settings";
+  | "Chat Monitoring";
 
 export interface NavigationState {
   section: Section;
@@ -19,7 +18,6 @@ const sectionToHash: Record<Section, string> = {
   "Users": "users",
   "Doulas": "doulas",
   "Chat Monitoring": "chat",
-  "Settings": "settings",
 };
 
 const hashToSection: Record<string, Section> = {
@@ -27,7 +25,6 @@ const hashToSection: Record<string, Section> = {
   "users": "Users",
   "doulas": "Doulas",
   "chat": "Chat Monitoring",
-  "settings": "Settings",
 };
 
 function parseHash(): NavigationState {

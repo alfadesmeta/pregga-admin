@@ -6,7 +6,6 @@ import {
   Users,
   Heart,
   MessageCircle,
-  Settings,
 } from "lucide-react";
 
 interface SearchResult {
@@ -64,7 +63,6 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
     { id: "users", title: "Users", subtitle: "Manage users", type: "page", icon: <Users size={16} /> },
     { id: "doulas", title: "Doulas", subtitle: "Manage doulas", type: "page", icon: <Heart size={16} /> },
     { id: "chat", title: "Chat Monitoring", subtitle: "Monitor conversations", type: "page", icon: <MessageCircle size={16} /> },
-    { id: "settings", title: "Settings", subtitle: "System settings", type: "page", icon: <Settings size={16} /> },
   ];
 
   const displayResults = query ? filteredResults : defaultResults;

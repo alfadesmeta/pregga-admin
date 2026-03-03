@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import { PreggaColors, PreggaShadows } from "../../theme/colors";
 import { X } from "lucide-react";
 
@@ -14,17 +15,17 @@ interface ModalProps {
 export function Modal({ open, onClose, title, children, width = 480, footer }: ModalProps) {
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "rgba(45, 42, 38, 0.5)",
-        backdropFilter: "blur(2px)",
+        background: "rgba(45, 42, 38, 0.6)",
+        backdropFilter: "blur(4px)",
         padding: 20,
       }}
       onClick={(e) => {
@@ -62,7 +63,7 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
                 fontWeight: 600,
                 color: PreggaColors.neutral900,
                 margin: 0,
-                fontFamily: "'Playfair Display', serif",
+                fontFamily: "'Inter', sans-serif",
               }}
             >
               {title}
@@ -115,4 +116,7 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
       </div>
     </div>
   );
+
+  // Render modal in a portal to ensure it's outside the page content
+  return ReactDOM.createPortal(modalContent, document.body);
 }

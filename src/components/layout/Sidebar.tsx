@@ -5,7 +5,6 @@ import {
   Users,
   Heart,
   MessageCircle,
-  DollarSign,
   LogOut,
 } from "lucide-react";
 import type { Section } from "../../hooks";
@@ -27,7 +26,6 @@ const sections: NavSection[] = [
       { name: "Users", label: "User Management", icon: Users },
       { name: "Doulas", label: "Doula Management", icon: Heart },
       { name: "Chat Monitoring", label: "Chat Monitoring", icon: MessageCircle },
-      { name: "Settings", label: "Financials", icon: DollarSign },
     ],
   },
 ];

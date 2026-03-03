@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useCountUp } from "../../../hooks";
 import { PreggaColors, PreggaShadows } from "../../../theme/colors";
 import { Card } from "../../ui/Card";
 import { Badge } from "../../ui/Badge";
@@ -9,11 +10,10 @@ import {
   MessageCircle,
   DollarSign,
   TrendingUp,
-  Star,
-  ArrowRight,
   UserPlus,
   CheckCircle,
   CreditCard,
+  Circle,
 } from "lucide-react";
 import {
   AreaChart,
@@ -28,21 +28,46 @@ import {
   userGrowthData,
   recentActivities,
   pendingVerifications,
-  topDoulas,
 } from "../../../data/mockData";
 
 interface DashboardViewProps {
   isMobile: boolean;
-  onNavigate?: (section: string) => void;
+  onNavigateToSubView?: (section: string, id: string) => void;
 }
 
 // Chart line color - dark navy/slate blue for better visibility
 const chartLineColor = "#1F2937";
 
-export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
+// Mock data for doula availability - using theme colors
+const doulaAvailability = [
+  { id: 1, name: "Amanda Chen", status: "online", activeChats: 3, color: "#8B7355" },   // Warm brown
+  { id: 2, name: "Sarah Mitchell", status: "online", activeChats: 2, color: "#6B8E6B" }, // Sage green
+  { id: 3, name: "Jennifer Lee", status: "busy", activeChats: 5, color: "#C97B8E" },     // Dusty rose
+  { id: 4, name: "Rachel Kim", status: "offline", activeChats: 0, color: "#C4896B" },    // Terracotta
+];
+
+// Helper function for status colors
+function getStatusColor(status: string) {
+  switch (status) {
+    case "online":
+      return "#10B981";
+    case "busy":
+      return "#F59E0B";
+    case "offline":
+      return "#9CA3AF";
+    default:
+      return "#9CA3AF";
+  }
+}
+
+export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewProps) {
   const [chartVisible, setChartVisible] = useState(false);
+  const [chartKey, setChartKey] = useState(0);
 
   useEffect(() => {
+    // Reset chart animation on mount/reload
+    setChartVisible(false);
+    setChartKey(prev => prev + 1);
     const timer = setTimeout(() => setChartVisible(true), 400);
     return () => clearTimeout(timer);
   }, []);
@@ -91,44 +116,49 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
           gap: 16,
         }}
       >
-        <StatCard
+        <AnimatedStatCard
           title="Total Users"
-          value={dashboardStats.totalUsers.toLocaleString()}
+          numericValue={dashboardStats.totalUsers}
           subtitle={`+${dashboardStats.usersThisMonth} this month`}
           subtitleColor={PreggaColors.success600}
           icon={<Users size={20} />}
           iconBg={PreggaColors.sage100}
           iconColor={PreggaColors.sage600}
+          delay={0}
         />
-        <StatCard
+        <AnimatedStatCard
           title="Active Doulas"
-          value={dashboardStats.activeDoulas.toString()}
+          numericValue={dashboardStats.activeDoulas}
           subtitle={`${dashboardStats.pendingVerifications} pending`}
           subtitleColor={PreggaColors.warning600}
           icon={<Heart size={20} />}
           iconBg={PreggaColors.rose100}
           iconColor={PreggaColors.rose600}
+          delay={100}
         />
-        <StatCard
-          title="Total Chats"
-          value={dashboardStats.totalChats.toLocaleString()}
+        <AnimatedStatCard
+          title="Total Conversations"
+          numericValue={dashboardStats.totalChats}
           subtitle={`Avg ${dashboardStats.avgResponseTime}`}
           icon={<MessageCircle size={20} />}
           iconBg={PreggaColors.primary100}
           iconColor={PreggaColors.primary600}
+          delay={200}
         />
-        <StatCard
+        <AnimatedStatCard
           title="Monthly Revenue"
-          value={`$${dashboardStats.monthlyRevenue.toLocaleString()}`}
+          numericValue={dashboardStats.monthlyRevenue}
+          prefix="$"
           subtitle={`${dashboardStats.userSatisfaction}% satisfaction`}
           subtitleColor={PreggaColors.success600}
           icon={<DollarSign size={20} />}
           iconBg={PreggaColors.terracotta100}
           iconColor={PreggaColors.terracotta600}
+          delay={300}
         />
       </div>
 
-      {/* Main Content Grid */}
+      {/* Chart + Quick Actions Row */}
       <div
         style={{
           display: "grid",
@@ -141,21 +171,21 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
           title="User Registrations"
           subtitle="Last 7 days"
           delay={400}
-          action={
-            <Button variant="ghost" size="sm" onClick={() => onNavigate?.("Analytics")}>
-              View Details
-            </Button>
-          }
         >
           <div
             style={{
               height: 280,
               opacity: chartVisible ? 1 : 0,
-              transition: "opacity 0.5s ease",
+              transform: chartVisible ? "translateY(0)" : "translateY(20px)",
+              transition: "opacity 0.6s ease, transform 0.6s ease",
             }}
           >
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={userGrowthData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <AreaChart 
+                key={chartKey}
+                data={userGrowthData} 
+                margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartLineColor} stopOpacity={0.1} />
@@ -188,84 +218,75 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorValue)"
-                  animationDuration={1000}
+                  animationBegin={200}
+                  animationDuration={1500}
+                  animationEasing="ease-out"
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        {/* Top Doulas */}
-        <Card
-          title="Top Performing Doulas"
-          subtitle="By client satisfaction"
-          delay={500}
-          action={
-            <Button variant="ghost" size="sm" onClick={() => onNavigate?.("Doulas")}>
-              View All
-            </Button>
-          }
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {topDoulas.map((doula) => (
-              <div
-                key={doula.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: PreggaColors.cream50,
-                  transition: "background 0.12s",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.cream100)}
-                onMouseLeave={(e) => (e.currentTarget.style.background = PreggaColors.cream50)}
-              >
+        {/* Doula Availability */}
+        <Card title="Doula Availability" subtitle="Current status" delay={450}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {doulaAvailability.map((doula) => (
                 <div
+                  key={doula.id}
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    background: doula.color,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    color: PreggaColors.white,
-                    fontSize: 13,
-                    fontWeight: 600,
+                    gap: 10,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    background: PreggaColors.neutral50,
                   }}
                 >
-                  {doula.name.split(" ").map((n) => n[0]).join("")}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: PreggaColors.neutral900 }}>
-                    {doula.name}
-                  </div>
-                  <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
-                    {doula.clients} active clients
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
                   <div
                     style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      background: doula.color,
                       display: "flex",
                       alignItems: "center",
-                      gap: 4,
-                      fontSize: 14,
+                      justifyContent: "center",
+                      color: PreggaColors.white,
+                      fontSize: 11,
                       fontWeight: 600,
-                      color: PreggaColors.warning600,
                     }}
                   >
-                    <Star size={14} fill={PreggaColors.warning500} />
-                    {doula.rating}
+                    {doula.name.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral900 }}>
+                      {doula.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: PreggaColors.neutral500 }}>
+                      {doula.activeChats} active chats
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Circle
+                      size={8}
+                      fill={getStatusColor(doula.status)}
+                      color={getStatusColor(doula.status)}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: getStatusColor(doula.status),
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {doula.status}
+                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
       </div>
 
       {/* Bottom Row */}
@@ -328,7 +349,11 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNavigateToSubView?.("Doula Management", item.id)}
+                >
                   Review
                 </Button>
               </div>
@@ -341,11 +366,6 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
           title="Recent Activity"
           subtitle="Latest platform events"
           delay={700}
-          action={
-            <Button variant="ghost" size="sm" icon={<ArrowRight size={14} />} iconPosition="right">
-              View All
-            </Button>
-          }
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {recentActivities.map((activity, index) => (
@@ -405,18 +425,38 @@ export function DashboardView({ isMobile, onNavigate }: DashboardViewProps) {
   );
 }
 
-// Stat Card component with even alignment styling
-interface StatCardProps {
+// Animated Stat Card component with count-up animation
+interface AnimatedStatCardProps {
   title: string;
-  value: string;
+  numericValue: number;
+  prefix?: string;
   subtitle: string;
   subtitleColor?: string;
   icon: React.ReactNode;
   iconBg: string;
   iconColor: string;
+  delay?: number;
 }
 
-function StatCard({ title, value, subtitle, subtitleColor, icon, iconBg, iconColor }: StatCardProps) {
+function AnimatedStatCard({ 
+  title, 
+  numericValue, 
+  prefix = "", 
+  subtitle, 
+  subtitleColor, 
+  icon, 
+  iconBg, 
+  iconColor,
+  delay = 0 
+}: AnimatedStatCardProps) {
+  const animatedValue = useCountUp(numericValue, 1500, delay);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+
   return (
     <div
       style={{
@@ -427,6 +467,9 @@ function StatCard({ title, value, subtitle, subtitleColor, icon, iconBg, iconCol
         display: "flex",
         flexDirection: "column",
         gap: 12,
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? "translateY(0)" : "translateY(10px)",
+        transition: "opacity 0.4s ease, transform 0.4s ease",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -448,7 +491,7 @@ function StatCard({ title, value, subtitle, subtitleColor, icon, iconBg, iconCol
       </div>
       <div>
         <div style={{ fontSize: 32, fontWeight: 600, color: PreggaColors.neutral900, lineHeight: 1 }}>
-          {value}
+          {prefix}{animatedValue.toLocaleString()}
         </div>
         <div style={{ 
           fontSize: 12, 
@@ -465,3 +508,4 @@ function StatCard({ title, value, subtitle, subtitleColor, icon, iconBg, iconCol
     </div>
   );
 }
+

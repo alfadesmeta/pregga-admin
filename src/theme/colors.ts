@@ -76,6 +76,7 @@ export const PreggaColors = {
   destructive500: "#F44336",
   destructive400: "#EF5350",
   destructive100: "rgba(244, 67, 54, 0.12)",
+  destructive50: "#FEF2F2",
 
   // Terracotta (for logo and heart icon)
   terracotta600: "#B85442",

@@ -13,16 +13,14 @@ import type { User } from "../../../types";
 import {
   Search,
   Plus,
-  Filter,
-  Download,
-  MoreVertical,
-  Calendar,
-  Mail,
-  Phone,
   Heart,
-  User as UserIcon,
   ArrowLeft,
+  X,
+  Trash2,
+  AlertTriangle,
+  Pencil,
 } from "lucide-react";
+import { doulasData } from "../../../data/mockData";
 
 interface UsersViewProps {
   isMobile: boolean;
@@ -34,8 +32,8 @@ interface UsersViewProps {
 export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: UsersViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [doulaFilter, setDoulaFilter] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"active" | "all">("active");
 
   const filteredData = useMemo(() => {
     return usersData.filter((user) => {
@@ -45,11 +43,11 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
         user.id.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus = !statusFilter || user.status === statusFilter;
-      const matchesTab = activeTab === "all" || user.status === "active";
+      const matchesDoula = !doulaFilter || user.assignedDoulaId === doulaFilter;
 
-      return matchesSearch && matchesStatus && matchesTab;
+      return matchesSearch && matchesStatus && matchesDoula;
     });
-  }, [searchQuery, statusFilter, activeTab]);
+  }, [searchQuery, statusFilter, doulaFilter]);
 
   const {
     paginatedData,
@@ -141,113 +139,95 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
         <span style={{ color: PreggaColors.neutral500, fontSize: 13 }}>{value as string}</span>
       ),
     },
-    {
-      key: "actions",
-      label: "",
-      width: "60px",
-      render: () => (
-        <button
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: 4,
-            color: PreggaColors.neutral400,
-            display: "flex",
-          }}
-        >
-          <MoreVertical size={16} />
-        </button>
-      ),
-    },
   ];
 
+  const hasActiveFilters = statusFilter !== "" || doulaFilter !== "" || searchQuery !== "";
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("");
+    setDoulaFilter("");
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Filters */}
-      <Card padding="16px">
-        <div
-          style={{
-            display: "flex",
-            flexDirection: isMobile ? "column" : "row",
-            alignItems: isMobile ? "stretch" : "center",
-            gap: 12,
-          }}
-        >
-          <div style={{ flex: 1, maxWidth: isMobile ? "100%" : 300 }}>
-            <Input
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              icon={<Search size={16} />}
-              style={{ marginBottom: 0 }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ width: 150 }}>
-              <Select
-                value={statusFilter}
-                onChange={setStatusFilter}
-                options={[
-                  { value: "", label: "All Status" },
-                  { value: "active", label: "Active" },
-                  { value: "inactive", label: "Inactive" },
-                  { value: "pending", label: "Pending" },
-                ]}
-              />
-            </div>
-
-            <Button variant="outline" icon={<Filter size={16} />}>
-              More Filters
-            </Button>
-
-            <Button variant="outline" icon={<Download size={16} />}>
-              Export
-            </Button>
-
-            <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)}>
-              Add User
-            </Button>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Filters Row - No Card wrapper */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: isMobile ? "wrap" : "nowrap",
+        }}
+      >
+        <div style={{ width: isMobile ? "100%" : 220 }}>
+          <Input
+            placeholder="Search by name, email, or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            icon={<Search size={16} />}
+            style={{ marginBottom: 0 }}
+          />
         </div>
-      </Card>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 4 }}>
-        {(["active", "all"] as const).map((tab) => (
+        <div style={{ width: 130 }}>
+          <Select
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "", label: "All Status" },
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+              { value: "pending", label: "Pending" },
+            ]}
+          />
+        </div>
+
+        <div style={{ width: 150 }}>
+          <Select
+            value={doulaFilter}
+            onChange={setDoulaFilter}
+            options={[
+              { value: "", label: "All Doulas" },
+              ...doulasData.map((doula) => ({
+                value: doula.id,
+                label: doula.name,
+              })),
+            ]}
+          />
+        </div>
+
+        {hasActiveFilters && (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={clearAllFilters}
             style={{
-              padding: "10px 20px",
-              borderRadius: "8px 8px 0 0",
-              border: "none",
-              background: activeTab === tab ? PreggaColors.white : "transparent",
-              color: activeTab === tab ? PreggaColors.primary700 : PreggaColors.neutral500,
-              fontWeight: activeTab === tab ? 600 : 400,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              height: 42,
+              padding: "0 14px",
+              borderRadius: 8,
+              border: `1px solid ${PreggaColors.neutral200}`,
+              background: PreggaColors.white,
+              color: PreggaColors.neutral700,
               fontSize: 14,
-              cursor: "pointer",
               fontFamily: "'Inter', sans-serif",
-              borderBottom: activeTab === tab ? `2px solid ${PreggaColors.primary500}` : "none",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
-            {tab === "active" ? "Active Users" : "All Users"}
-            <span
-              style={{
-                marginLeft: 8,
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: activeTab === tab ? PreggaColors.primary100 : PreggaColors.neutral100,
-                fontSize: 12,
-              }}
-            >
-              {tab === "active"
-                ? usersData.filter((u) => u.status === "active").length
-                : usersData.length}
-            </span>
+            <X size={14} />
+            Clear
           </button>
-        ))}
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)}>
+          Add User
+        </Button>
       </div>
 
       {/* Data Table */}
@@ -279,107 +259,228 @@ function UserDetailView({
   isMobile: boolean;
   onGoBack?: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState<"overview" | "payments">("overview");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+
+  const subscriptionPlan = "Premium";
+  const totalSessions = 45;
+  const lastActive = "2 min ago";
+  const age = 28;
+
+  const paymentHistory = [
+    { amount: "$49.99", date: "Feb 1, 2026", method: "Credit Card", status: "Paid" },
+    { amount: "$49.99", date: "Jan 1, 2026", method: "Credit Card", status: "Paid" },
+  ];
+
+  const handleDeleteUser = () => {
+    console.log("Deleting user:", user.id);
+    setShowDeleteModal(false);
+    onGoBack?.();
+  };
+
+  const handleRevokeAccess = () => {
+    console.log("Revoking access for user:", user.id);
+    setShowRevokeModal(false);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Back Button */}
-      <button
-        onClick={onGoBack}
+      {/* Header */}
+      <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 8,
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: PreggaColors.neutral600,
-          fontSize: 14,
-          fontFamily: "'Inter', sans-serif",
-          padding: 0,
+          alignItems: "flex-start",
+          justifyContent: "space-between",
         }}
       >
-        <ArrowLeft size={18} />
-        Back to Users
-      </button>
-
-      {/* User Header */}
-      <Card padding="24px">
-        <div
-          style={{
-            display: "flex",
-            flexDirection: isMobile ? "column" : "row",
-            alignItems: isMobile ? "flex-start" : "center",
-            gap: 20,
-          }}
-        >
-          <div
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={onGoBack}
             style={{
-              width: 80,
-              height: 80,
-              borderRadius: "50%",
-              background: PreggaColors.primary100,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: PreggaColors.neutral600,
+              padding: 0,
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: PreggaColors.primary500,
-              fontSize: 28,
-              fontWeight: 600,
             }}
           >
-            {user.name.split(" ").map((n) => n[0]).join("")}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-              <h2
-                style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  color: PreggaColors.neutral900,
-                  margin: 0,
-                  fontFamily: "'Playfair Display', serif",
-                }}
-              >
-                {user.name}
-              </h2>
-              <StatusBadge status={user.status} />
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, color: PreggaColors.neutral500, fontSize: 14 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Mail size={14} /> {user.email}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Phone size={14} /> {user.phone}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Calendar size={14} /> Joined {user.joinedAt}
-              </span>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <Button variant="outline">Edit Profile</Button>
-            <Button>Send Message</Button>
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1
+              style={{
+                fontSize: 22,
+                fontWeight: 600,
+                color: PreggaColors.neutral900,
+                margin: 0,
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              User Profile
+            </h1>
+            <p
+              style={{
+                fontSize: 14,
+                color: PreggaColors.neutral500,
+                margin: 0,
+              }}
+            >
+              View and manage user details
+            </p>
           </div>
         </div>
-      </Card>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Button icon={<Pencil size={16} />} onClick={() => setShowEditModal(true)}>
+            Edit Profile
+          </Button>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "none",
+              background: "#FEE2E2",
+              color: "#DC2626",
+              fontWeight: 500,
+              fontSize: 14,
+              cursor: "pointer",
+              fontFamily: "'Inter', sans-serif",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#FECACA";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#FEE2E2";
+            }}
+          >
+            <Trash2 size={16} />
+            Delete User
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Banner */}
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)`,
+          borderRadius: 16,
+          padding: "24px 32px",
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+          gap: 24,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              marginBottom: 4,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Subscription Plan
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: PreggaColors.white,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {subscriptionPlan}
+          </div>
+        </div>
+        <div style={{ textAlign: isMobile ? "left" : "center" }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              marginBottom: 4,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Total Sessions
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: PreggaColors.white,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {totalSessions}
+          </div>
+        </div>
+        <div style={{ textAlign: isMobile ? "left" : "right" }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              marginBottom: 4,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Last Active
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: PreggaColors.white,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {lastActive}
+          </div>
+        </div>
+      </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${PreggaColors.primary100}` }}>
-        {["profile", "pregnancy", "activity"].map((tab) => (
+      <div
+        style={{
+          display: "flex",
+          gap: 0,
+          background: PreggaColors.neutral100,
+          borderRadius: 12,
+          padding: 4,
+          width: "fit-content",
+        }}
+      >
+        {(["overview", "payments"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: "12px 20px",
+              padding: "10px 32px",
+              borderRadius: 8,
               border: "none",
-              background: "transparent",
-              color: activeTab === tab ? PreggaColors.primary700 : PreggaColors.neutral500,
-              fontWeight: activeTab === tab ? 600 : 400,
+              background: activeTab === tab ? PreggaColors.white : "transparent",
+              color: activeTab === tab ? PreggaColors.neutral900 : PreggaColors.neutral500,
+              fontWeight: 500,
               fontSize: 14,
               cursor: "pointer",
               fontFamily: "'Inter', sans-serif",
-              borderBottom: activeTab === tab ? `2px solid ${PreggaColors.primary500}` : "2px solid transparent",
-              marginBottom: -1,
+              boxShadow: activeTab === tab ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              transition: "all 0.2s ease",
             }}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -388,20 +489,18 @@ function UserDetailView({
       </div>
 
       {/* Tab Content */}
-      {activeTab === "profile" && (
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
-          <Card title="Personal Information" padding="20px">
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <InfoRow label="Full Name" value={user.name} />
-              <InfoRow label="Email" value={user.email} />
-              <InfoRow label="Phone" value={user.phone} />
-              <InfoRow label="User ID" value={user.id} />
-              <InfoRow label="Last Active" value={user.lastActive || "—"} />
-            </div>
-          </Card>
-          <Card title="Assigned Doula" padding="20px">
-            {user.assignedDoula ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {activeTab === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* User Info Card */}
+          <Card padding="20px">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <div
                   style={{
                     width: 48,
@@ -411,92 +510,345 @@ function UserDetailView({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: PreggaColors.primary500,
+                    color: PreggaColors.primary600,
+                    fontSize: 16,
+                    fontWeight: 600,
                   }}
                 >
-                  <Heart size={20} />
+                  {user.name.split(" ").map((n) => n[0]).join("")}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 500, color: PreggaColors.neutral900 }}>{user.assignedDoula}</div>
-                  <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>ID: {user.assignedDoulaId}</div>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: 16,
+                      color: PreggaColors.neutral900,
+                    }}
+                  >
+                    {user.name}
+                  </div>
+                  <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
+                    {user.email}
+                  </div>
+                  <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
+                    {user.phone}
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: 20, color: PreggaColors.neutral500 }}>
-                <UserIcon size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
-                <div>No doula assigned yet</div>
-                <Button variant="outline" size="sm" style={{ marginTop: 12 }}>
-                  Assign Doula
-                </Button>
-              </div>
-            )}
+              <StatusBadge status={user.status} />
+            </div>
           </Card>
+
+          {/* Info Grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gap: 16,
+            }}
+          >
+            <InfoCard label="Pregnancy Stage" value={user.pregnancyWeek ? `${user.pregnancyWeek} weeks` : "—"} />
+            <InfoCard label="Due Date" value={user.dueDate || "—"} />
+            <InfoCard label="Age" value={`${age} years`} />
+            <InfoCard label="Join Date" value={user.joinedAt} />
+            <InfoCard label="Subscription Plan" value={subscriptionPlan} />
+            <InfoCard label="Total Sessions" value={String(totalSessions)} />
+          </div>
         </div>
       )}
 
-      {activeTab === "pregnancy" && (
-        <Card title="Pregnancy Details" padding="20px">
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 20 }}>
+      {activeTab === "payments" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Subscription Management Card */}
+          <div
+            style={{
+              background: `linear-gradient(135deg, ${PreggaColors.sage100} 0%, #E8F0E9 100%)`,
+              borderRadius: 12,
+              padding: 20,
+            }}
+          >
             <div
               style={{
-                padding: 20,
-                borderRadius: 12,
-                background: PreggaColors.primary50,
-                textAlign: "center",
+                fontWeight: 600,
+                fontSize: 16,
+                color: PreggaColors.neutral900,
+                marginBottom: 16,
               }}
             >
-              <div style={{ fontSize: 36, fontWeight: 700, color: PreggaColors.primary500 }}>
-                {user.pregnancyWeek || "—"}
-              </div>
-              <div style={{ fontSize: 14, color: PreggaColors.neutral600 }}>Current Week</div>
+              Subscription Management
             </div>
-            <div
-              style={{
-                padding: 20,
-                borderRadius: 12,
-                background: PreggaColors.accent100,
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.accent500 }}>
-                {user.dueDate || "—"}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>
+                  Current Status
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: PreggaColors.success500,
+                  }}
+                >
+                  Paid
+                </span>
               </div>
-              <div style={{ fontSize: 14, color: PreggaColors.neutral600 }}>Due Date</div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>
+                  Plan
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: PreggaColors.neutral900,
+                  }}
+                >
+                  Premium - $49.99/month
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>
+                  Next Billing
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: PreggaColors.neutral900,
+                  }}
+                >
+                  Mar 1, 2026
+                </span>
+              </div>
             </div>
+            <button
+              onClick={() => setShowRevokeModal(true)}
+              style={{
+                width: "100%",
+                marginTop: 20,
+                padding: "12px 20px",
+                borderRadius: 8,
+                border: "none",
+                background: "rgba(239, 68, 68, 0.1)",
+                color: "#EF4444",
+                fontWeight: 500,
+                fontSize: 14,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)")}
+            >
+              Revoke Access
+            </button>
+          </div>
+
+          {/* Payment History */}
+          <div>
             <div
               style={{
-                padding: 20,
-                borderRadius: 12,
-                background: PreggaColors.primary50,
-                textAlign: "center",
+                fontWeight: 600,
+                fontSize: 16,
+                color: PreggaColors.neutral900,
+                marginBottom: 12,
               }}
             >
-              <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.primary600 }}>
-                {user.pregnancyWeek ? Math.ceil((40 - user.pregnancyWeek) * 7) : "—"}
-              </div>
-              <div style={{ fontSize: 14, color: PreggaColors.neutral600 }}>Days Remaining</div>
+              Payment History
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {paymentHistory.map((payment, index) => (
+                <Card key={index} padding="16px">
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: 16,
+                          color: PreggaColors.neutral900,
+                        }}
+                      >
+                        {payment.amount}
+                      </div>
+                      <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
+                        {payment.date} • {payment.method}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: PreggaColors.success500,
+                      }}
+                    >
+                      {payment.status}
+                    </span>
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
-      {activeTab === "activity" && (
-        <Card title="Recent Activity" padding="20px">
-          <div style={{ textAlign: "center", padding: 40, color: PreggaColors.neutral500 }}>
-            Activity timeline coming soon...
+      {/* Delete User Modal */}
+      <DeleteUserModal
+        open={showDeleteModal}
+        user={user}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteUser}
+      />
+
+      {/* Edit User Modal */}
+      <Modal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit User Profile"
+        width={520}
+        footer={
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <Button variant="outline" onClick={() => setShowEditModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => setShowEditModal(false)}>Save Changes</Button>
           </div>
-        </Card>
-      )}
+        }
+      >
+        <Input label="Full Name" defaultValue={user.name} />
+        <Input label="Email Address" type="email" defaultValue={user.email} />
+        <Input label="Phone Number" type="tel" defaultValue={user.phone} />
+        <Input label="Due Date" type="date" defaultValue={user.dueDate || ""} />
+        <Select
+          label="Status"
+          value={user.status}
+          onChange={() => {}}
+          options={[
+            { value: "active", label: "Active" },
+            { value: "inactive", label: "Inactive" },
+            { value: "pending", label: "Pending" },
+          ]}
+        />
+      </Modal>
+
+      {/* Revoke Access Modal */}
+      <Modal
+        open={showRevokeModal}
+        onClose={() => setShowRevokeModal(false)}
+        title=""
+        width={400}
+        footer={
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <Button variant="outline" onClick={() => setShowRevokeModal(false)}>
+              Cancel
+            </Button>
+            <button
+              onClick={handleRevokeAccess}
+              style={{
+                padding: "10px 20px",
+                borderRadius: 8,
+                border: "none",
+                background: "#EF4444",
+                color: PreggaColors.white,
+                fontWeight: 500,
+                fontSize: 14,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Revoke Access
+            </button>
+          </div>
+        }
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "#FEE2E2",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+          >
+            <AlertTriangle size={28} color="#EF4444" />
+          </div>
+          <h3
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: PreggaColors.neutral900,
+              margin: "0 0 8px",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Revoke Subscription Access?
+          </h3>
+          <p
+            style={{
+              fontSize: 14,
+              color: PreggaColors.neutral500,
+              margin: 0,
+              lineHeight: 1.5,
+            }}
+          >
+            This will immediately revoke <strong style={{ color: PreggaColors.neutral700 }}>{user.name}</strong>'s 
+            access to premium features. They will be downgraded to the free plan.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ color: PreggaColors.neutral500, fontSize: 14 }}>{label}</span>
-      <span style={{ fontWeight: 500, color: PreggaColors.neutral900, fontSize: 14 }}>{value}</span>
-    </div>
+    <Card padding="16px">
+      <div
+        style={{
+          fontSize: 13,
+          color: PreggaColors.neutral500,
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 600,
+          color: PreggaColors.neutral900,
+        }}
+      >
+        {value}
+      </div>
+    </Card>
   );
 }
 
@@ -544,6 +896,154 @@ function AddUserModal({ open, onClose }: { open: boolean; onClose: () => void })
         value={formData.phone}
         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
       />
+    </Modal>
+  );
+}
+
+function DeleteUserModal({
+  open,
+  user,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  user: User | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+
+  const handleClose = () => {
+    setConfirmText("");
+    onClose();
+  };
+
+  const handleConfirm = () => {
+    setConfirmText("");
+    onConfirm();
+  };
+
+  const isConfirmEnabled = confirmText.toLowerCase() === "delete";
+
+  if (!user) return null;
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title=""
+      width={440}
+      footer={
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <Button variant="outline" onClick={handleClose}>
+            Cancel
+          </Button>
+          <button
+            onClick={handleConfirm}
+            disabled={!isConfirmEnabled}
+            style={{
+              padding: "10px 20px",
+              borderRadius: 8,
+              border: "none",
+              background: isConfirmEnabled ? PreggaColors.destructive500 : PreggaColors.neutral200,
+              color: isConfirmEnabled ? PreggaColors.white : PreggaColors.neutral400,
+              fontWeight: 500,
+              fontSize: 14,
+              cursor: isConfirmEnabled ? "pointer" : "not-allowed",
+              fontFamily: "'Inter', sans-serif",
+              transition: "all 0.15s ease",
+            }}
+          >
+            Delete User
+          </button>
+        </div>
+      }
+    >
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: PreggaColors.destructive50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+          }}
+        >
+          <AlertTriangle size={32} color={PreggaColors.destructive500} />
+        </div>
+        <h3
+          style={{
+            fontSize: 20,
+            fontWeight: 600,
+            color: PreggaColors.neutral900,
+            margin: "0 0 8px",
+            fontFamily: "'Playfair Display', serif",
+          }}
+        >
+          Delete User
+        </h3>
+        <p
+          style={{
+            fontSize: 14,
+            color: PreggaColors.neutral500,
+            margin: 0,
+            lineHeight: 1.5,
+          }}
+        >
+          Are you sure you want to delete <strong style={{ color: PreggaColors.neutral700 }}>{user.name}</strong>? 
+          This action cannot be undone and all user data will be permanently removed.
+        </p>
+      </div>
+
+      <div
+        style={{
+          background: PreggaColors.destructive50,
+          borderRadius: 8,
+          padding: 16,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontSize: 13, color: PreggaColors.neutral600, marginBottom: 8 }}>
+          This will permanently delete:
+        </div>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 20,
+            fontSize: 13,
+            color: PreggaColors.neutral700,
+            lineHeight: 1.8,
+          }}
+        >
+          <li>User profile and personal information</li>
+          <li>All conversation history</li>
+          <li>Subscription and payment records</li>
+          <li>Associated doula assignments</li>
+        </ul>
+      </div>
+
+      <div>
+        <label
+          style={{
+            display: "block",
+            fontSize: 13,
+            fontWeight: 500,
+            color: PreggaColors.neutral700,
+            marginBottom: 6,
+          }}
+        >
+          Type <strong style={{ color: PreggaColors.destructive500 }}>DELETE</strong> to confirm
+        </label>
+        <Input
+          placeholder="Type DELETE to confirm"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          style={{ marginBottom: 0 }}
+        />
+      </div>
     </Modal>
   );
 }

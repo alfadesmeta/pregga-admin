@@ -27,7 +27,7 @@ export function Input({
   const inputStyle: React.CSSProperties = {
     width: fullWidth ? "100%" : "auto",
     padding: icon ? "10px 14px 10px 40px" : "10px 14px",
-    borderRadius: 10,
+    borderRadius: 8,
     border: `1px solid ${error ? PreggaColors.destructive400 : isFocused ? PreggaColors.accent400 : PreggaColors.neutral200}`,
     fontSize: 14,
     fontFamily: "'Inter', sans-serif",
@@ -37,11 +37,12 @@ export function Input({
     color: PreggaColors.neutral900,
     background: PreggaColors.white,
     boxShadow: isFocused ? `0 0 0 3px ${PreggaColors.accent100}` : "none",
+    height: 42,
     ...style,
   };
 
   return (
-    <div style={{ marginBottom: 16, width: fullWidth ? "100%" : "auto" }}>
+    <div style={{ marginBottom: label ? 16 : 0, width: fullWidth ? "100%" : "auto" }}>
       {label && (
         <label
           style={{
