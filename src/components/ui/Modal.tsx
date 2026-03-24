@@ -28,12 +28,10 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
         backdropFilter: "blur(4px)",
         padding: 20,
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div
         style={{
+          position: "relative",
           width: "100%",
           maxWidth: width,
           maxHeight: "90vh",
@@ -47,6 +45,35 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close button - always visible */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            background: PreggaColors.neutral100,
+            border: "none",
+            cursor: "pointer",
+            padding: 6,
+            display: "flex",
+            color: PreggaColors.neutral500,
+            borderRadius: 8,
+            transition: "all 0.15s",
+            zIndex: 1,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = PreggaColors.neutral200;
+            e.currentTarget.style.color = PreggaColors.neutral700;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = PreggaColors.neutral100;
+            e.currentTarget.style.color = PreggaColors.neutral500;
+          }}
+        >
+          <X size={18} />
+        </button>
+
         {title && (
           <div
             style={{
@@ -54,6 +81,7 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
               alignItems: "center",
               justifyContent: "space-between",
               padding: "18px 24px",
+              paddingRight: 56,
               borderBottom: `1px solid ${PreggaColors.primary100}`,
             }}
           >
@@ -68,34 +96,12 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
             >
               {title}
             </h2>
-            <button
-              onClick={onClose}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 4,
-                display: "flex",
-                color: PreggaColors.neutral500,
-                borderRadius: 6,
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = PreggaColors.neutral100;
-                e.currentTarget.style.color = PreggaColors.neutral700;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = PreggaColors.neutral500;
-              }}
-            >
-              <X size={20} />
-            </button>
           </div>
         )}
         <div
           style={{
             padding: title ? "20px 24px" : "24px",
+            paddingTop: title ? 20 : 48,
             overflowY: "auto",
             flex: 1,
           }}

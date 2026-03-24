@@ -35,8 +35,9 @@ interface DashboardViewProps {
   onNavigateToSubView?: (section: string, id: string) => void;
 }
 
-// Chart line color - dark navy/slate blue for better visibility
-const chartLineColor = "#1F2937";
+// Chart line color - soft sage green matching theme
+const chartLineColor = "#6B7B5F";
+const chartFillColor = "#E8EBE5";
 
 // Mock data for doula availability - using theme colors
 const doulaAvailability = [
@@ -188,8 +189,8 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
               >
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartLineColor} stopOpacity={0.1} />
-                    <stop offset="95%" stopColor={chartLineColor} stopOpacity={0.02} />
+                    <stop offset="5%" stopColor={chartFillColor} stopOpacity={0.8} />
+                    <stop offset="95%" stopColor={chartFillColor} stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
                 <XAxis

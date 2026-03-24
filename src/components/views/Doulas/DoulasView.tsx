@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useCountUp } from "../../../hooks";
-import { PreggaColors } from "../../../theme/colors";
+import { PreggaColors, PreggaShadows } from "../../../theme/colors";
 import { DataTable, TableColumn } from "../../ui/DataTable";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
@@ -819,10 +819,11 @@ function DoulaDetailView({
         style={{
           display: "flex",
           gap: 0,
-          background: PreggaColors.neutral100,
+          background: PreggaColors.white,
           borderRadius: 12,
           padding: 4,
-          width: "fit-content",
+          width: "100%",
+          border: `1px solid ${PreggaColors.secondary300}`,
         }}
       >
         {(["overview", "clients", "sessions", "delete"] as const).map((tab) => (
@@ -830,16 +831,17 @@ function DoulaDetailView({
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: "10px 24px",
+              flex: 1,
+              padding: "12px 24px",
               borderRadius: 8,
-              border: "none",
-              background: activeTab === tab ? PreggaColors.white : "transparent",
+              border: activeTab === tab ? "1px solid transparent" : `1px solid ${PreggaColors.secondary300}`,
+              background: activeTab === tab ? "transparent" : PreggaColors.secondary100,
               color: activeTab === tab ? PreggaColors.neutral900 : PreggaColors.neutral500,
               fontWeight: 500,
               fontSize: 14,
               cursor: "pointer",
               fontFamily: "'Inter', sans-serif",
-              boxShadow: activeTab === tab ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              boxShadow: "none",
               transition: "all 0.2s ease",
             }}
           >

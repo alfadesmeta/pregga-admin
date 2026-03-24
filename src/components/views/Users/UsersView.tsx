@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { PreggaColors } from "../../../theme/colors";
+import { PreggaColors, PreggaShadows } from "../../../theme/colors";
 import { DataTable, TableColumn } from "../../ui/DataTable";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
@@ -459,10 +459,11 @@ function UserDetailView({
         style={{
           display: "flex",
           gap: 0,
-          background: PreggaColors.neutral100,
+          background: PreggaColors.white,
           borderRadius: 12,
           padding: 4,
-          width: "fit-content",
+          width: "100%",
+          border: `1px solid ${PreggaColors.secondary300}`,
         }}
       >
         {(["overview", "payments"] as const).map((tab) => (
@@ -470,16 +471,17 @@ function UserDetailView({
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: "10px 32px",
+              flex: 1,
+              padding: "12px 32px",
               borderRadius: 8,
-              border: "none",
-              background: activeTab === tab ? PreggaColors.white : "transparent",
+              border: activeTab === tab ? "1px solid transparent" : `1px solid ${PreggaColors.secondary300}`,
+              background: activeTab === tab ? "transparent" : PreggaColors.secondary100,
               color: activeTab === tab ? PreggaColors.neutral900 : PreggaColors.neutral500,
               fontWeight: 500,
               fontSize: 14,
               cursor: "pointer",
               fontFamily: "'Inter', sans-serif",
-              boxShadow: activeTab === tab ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              boxShadow: "none",
               transition: "all 0.2s ease",
             }}
           >
@@ -562,37 +564,107 @@ function UserDetailView({
           {/* Subscription Management Card */}
           <div
             style={{
-              background: `linear-gradient(135deg, ${PreggaColors.sage100} 0%, #E8F0E9 100%)`,
-              borderRadius: 12,
-              padding: 20,
+              background: PreggaColors.white,
+              borderRadius: 16,
+              padding: 24,
+              border: `1px solid ${PreggaColors.neutral200}`,
+              boxShadow: PreggaShadows.card,
             }}
           >
             <div
               style={{
-                fontWeight: 600,
-                fontSize: 16,
-                color: PreggaColors.neutral900,
-                marginBottom: 16,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 20,
               }}
             >
-              Subscription Management
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 16,
+                  color: PreggaColors.neutral900,
+                }}
+              >
+                Subscription Management
+              </div>
+              <span
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: `linear-gradient(135deg, ${PreggaColors.success100} 0%, rgba(76, 175, 80, 0.15) 100%)`,
+                  color: PreggaColors.success600,
+                  border: `1px solid ${PreggaColors.success400}`,
+                }}
+              >
+                Active
+              </span>
             </div>
+
+            <div
+              style={{
+                background: `linear-gradient(135deg, ${PreggaColors.primary50} 0%, ${PreggaColors.cream50} 100%)`,
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+                border: `1px solid ${PreggaColors.primary100}`,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  color: PreggaColors.neutral500,
+                  marginBottom: 4,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Current Plan
+              </div>
+              <div
+                style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: PreggaColors.primary600,
+                  marginBottom: 2,
+                }}
+              >
+                Premium
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: PreggaColors.neutral600,
+                }}
+              >
+                $49.99/month
+              </div>
+            </div>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  padding: "12px 16px",
+                  background: PreggaColors.neutral50,
+                  borderRadius: 8,
                 }}
               >
                 <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>
-                  Current Status
+                  Payment Status
                 </span>
                 <span
                   style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: PreggaColors.success500,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: PreggaColors.success600,
+                    background: PreggaColors.success100,
+                    padding: "4px 10px",
+                    borderRadius: 6,
                   }}
                 >
                   Paid
@@ -603,30 +675,13 @@ function UserDetailView({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  padding: "12px 16px",
+                  background: PreggaColors.neutral50,
+                  borderRadius: 8,
                 }}
               >
                 <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>
-                  Plan
-                </span>
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: PreggaColors.neutral900,
-                  }}
-                >
-                  Premium - $49.99/month
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>
-                  Next Billing
+                  Next Billing Date
                 </span>
                 <span
                   style={{
@@ -639,24 +694,31 @@ function UserDetailView({
                 </span>
               </div>
             </div>
+
             <button
               onClick={() => setShowRevokeModal(true)}
               style={{
                 width: "100%",
                 marginTop: 20,
                 padding: "12px 20px",
-                borderRadius: 8,
-                border: "none",
-                background: "rgba(239, 68, 68, 0.1)",
-                color: "#EF4444",
+                borderRadius: 10,
+                border: `1px solid ${PreggaColors.destructive400}`,
+                background: PreggaColors.destructive50,
+                color: PreggaColors.destructive600,
                 fontWeight: 500,
                 fontSize: 14,
                 cursor: "pointer",
                 fontFamily: "'Inter', sans-serif",
-                transition: "background 0.15s ease",
+                transition: "all 0.15s ease",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)")}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = PreggaColors.destructive100;
+                e.currentTarget.style.borderColor = PreggaColors.destructive500;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = PreggaColors.destructive50;
+                e.currentTarget.style.borderColor = PreggaColors.destructive400;
+              }}
             >
               Revoke Access
             </button>
