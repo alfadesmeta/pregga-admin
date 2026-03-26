@@ -97,6 +97,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
             subView={subView}
             onNavigateToSubView={navigateToSubView}
             onGoBack={goBack}
+            onNavigateToUser={(userId) => handleNavigateToSectionWithSubView("Users", userId)}
           />
         );
       case "Chat Monitoring":

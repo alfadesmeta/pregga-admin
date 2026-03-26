@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import ReactDOM from "react-dom";
 import { useCountUp } from "../../../hooks";
 import { PreggaColors, PreggaShadows } from "../../../theme/colors";
 import { DataTable, TableColumn } from "../../ui/DataTable";
@@ -27,6 +28,7 @@ interface DoulasViewProps {
   subView?: string;
   onNavigateToSubView?: (id: string) => void;
   onGoBack?: () => void;
+  onNavigateToUser?: (userId: string) => void;
 }
 
 // Get unique specializations from doulas data
@@ -34,7 +36,7 @@ const allSpecializations = Array.from(
   new Set(doulasData.flatMap((d) => d.specializations))
 );
 
-export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack }: DoulasViewProps) {
+export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUser }: DoulasViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("");
@@ -67,7 +69,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack }:
   if (subView) {
     const doula = doulasData.find((d) => d.id === subView);
     if (doula) {
-      return <DoulaDetailView doula={doula} isMobile={isMobile} onGoBack={onGoBack} />;
+      return <DoulaDetailView doula={doula} isMobile={isMobile} onGoBack={onGoBack} onViewClient={onNavigateToUser} />;
     }
   }
 
@@ -342,36 +344,64 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "rgba(45, 42, 38, 0.5)",
-        backdropFilter: "blur(2px)",
+        background: "rgba(45, 42, 38, 0.6)",
+        backdropFilter: "blur(4px)",
         padding: 20,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div
         style={{
+          position: "relative",
           width: "100%",
           maxWidth: 560,
           maxHeight: "90vh",
-          background: PreggaColors.cream50,
+          background: PreggaColors.white,
           borderRadius: 16,
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
+          boxShadow: PreggaShadows.modal,
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close button - always visible */}
+        <button
+          onClick={handleClose}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            background: PreggaColors.neutral100,
+            border: "none",
+            cursor: "pointer",
+            padding: 6,
+            display: "flex",
+            color: PreggaColors.neutral500,
+            borderRadius: 8,
+            transition: "all 0.15s",
+            zIndex: 1,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = PreggaColors.neutral200;
+            e.currentTarget.style.color = PreggaColors.neutral700;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = PreggaColors.neutral100;
+            e.currentTarget.style.color = PreggaColors.neutral500;
+          }}
+        >
+          <X size={18} />
+        </button>
+
         {/* Header */}
         <div
           style={{
@@ -379,6 +409,7 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
             alignItems: "center",
             justifyContent: "space-between",
             padding: "20px 24px",
+            paddingRight: 56,
             background: PreggaColors.white,
             borderBottom: `1px solid ${PreggaColors.neutral100}`,
           }}
@@ -405,20 +436,6 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
               Add a new doula to the platform
             </p>
           </div>
-          <button
-            onClick={handleClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-              color: PreggaColors.neutral500,
-              borderRadius: 6,
-            }}
-          >
-            <X size={20} />
-          </button>
         </div>
 
         {/* Stepper */}
@@ -428,8 +445,7 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
             alignItems: "center",
             justifyContent: "center",
             gap: 0,
-            padding: "20px 24px",
-            background: PreggaColors.white,
+            padding: "16px 24px",
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
@@ -505,7 +521,7 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
             padding: "0 24px 24px",
           }}
         >
-          <Card padding="20px">
+          <div>
             {step === 1 && (
               <>
                 <h3
@@ -696,7 +712,7 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
                 </div>
               </>
             )}
-          </Card>
+          </div>
         </div>
 
         {/* Footer */}
@@ -705,8 +721,8 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
             display: "flex",
             justifyContent: "space-between",
             padding: "16px 24px",
-            background: PreggaColors.white,
-            borderTop: `1px solid ${PreggaColors.neutral100}`,
+            borderTop: `1px solid ${PreggaColors.primary100}`,
+            background: PreggaColors.cream50,
           }}
         >
           {step === 1 ? (
@@ -730,6 +746,8 @@ function AddDoulaModal({ open, onClose }: { open: boolean; onClose: () => void }
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(modalContent, document.body);
 }
 
 function DoulaDetailView({
@@ -755,14 +773,14 @@ function DoulaDetailView({
   };
 
   const assignedClients = [
-    { id: "1", name: "Emma Wilson", status: "Active client" },
-    { id: "2", name: "Isabella Rodriguez", status: "Active client" },
+    { id: "USR-001", name: "Emma Thompson", status: "Active client" },
+    { id: "USR-002", name: "Olivia Martinez", status: "Active client" },
   ];
 
   const recentSessions = [
-    { client: "Emma Wilson", date: "Feb 6, 2026", type: "Video Call", duration: "45 min" },
-    { client: "Isabella Rodriguez", date: "Feb 5, 2026", type: "Chat", duration: "30 min" },
-    { client: "Emma Wilson", date: "Feb 4, 2026", type: "Chat", duration: "20 min" },
+    { client: "Emma Thompson", date: "Feb 6, 2026", type: "Video Call", duration: "45 min" },
+    { client: "Olivia Martinez", date: "Feb 5, 2026", type: "Chat", duration: "30 min" },
+    { client: "Emma Thompson", date: "Feb 4, 2026", type: "Chat", duration: "20 min" },
   ];
 
   return (
