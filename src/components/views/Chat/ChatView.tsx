@@ -269,13 +269,11 @@ export function ChatView({ isMobile }: ChatViewProps) {
       <div
         style={{
           display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 12,
-          flexWrap: isMobile ? "wrap" : "nowrap",
         }}
       >
-        <div style={{ width: isMobile ? "100%" : 220 }}>
+        <div style={{ width: "100%" }}>
           <Input
             placeholder="Search by name or ID..."
             value={searchQuery}
@@ -284,43 +282,45 @@ export function ChatView({ isMobile }: ChatViewProps) {
           />
         </div>
 
-        <div style={{ width: 130 }}>
-          <Select
-            value={statusFilter}
-            onChange={(val) => setStatusFilter(val)}
-            options={[
-              { value: "", label: "All Status" },
-              { value: "active", label: "Active" },
-              { value: "archived", label: "Archived" },
-              { value: "flagged", label: "Flagged" },
-            ]}
-          />
-        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ width: isMobile ? "calc(50% - 4px)" : 130 }}>
+            <Select
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              options={[
+                { value: "", label: "All Status" },
+                { value: "active", label: "Active" },
+                { value: "archived", label: "Archived" },
+                { value: "flagged", label: "Flagged" },
+              ]}
+            />
+          </div>
 
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              height: 42,
-              padding: "0 14px",
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
-              background: PreggaColors.white,
-              color: PreggaColors.neutral700,
-              fontSize: 14,
-              fontFamily: "'Inter', sans-serif",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <X size={14} />
-            Clear
-          </button>
-        )}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                height: 42,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: `1px solid ${PreggaColors.neutral200}`,
+                background: PreggaColors.white,
+                color: PreggaColors.neutral700,
+                fontSize: 14,
+                fontFamily: "'Inter', sans-serif",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <X size={14} />
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Chat Table */}
@@ -333,6 +333,52 @@ export function ChatView({ isMobile }: ChatViewProps) {
         pageSize={pageSize}
         onPageChange={goToPage}
         emptyMessage="No chat sessions found"
+        isMobile={isMobile}
+        mobileCardRender={(chat: ChatSession) => (
+          <div 
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+            onClick={() => setSelectedChat(chat)}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: PreggaColors.primary100,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: PreggaColors.primary600,
+                    fontWeight: 600,
+                    fontSize: 14,
+                  }}
+                >
+                  {chat.userName.split(" ").map((n) => n[0]).join("")}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>
+                    {chat.userName}
+                  </div>
+                  <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
+                    with {chat.doulaName}
+                  </div>
+                </div>
+              </div>
+              <Badge variant={chat.status === "active" ? "success" : chat.status === "flagged" ? "warning" : "secondary"}>
+                {chat.status}
+              </Badge>
+            </div>
+            <div style={{ fontSize: 13, color: PreggaColors.neutral600, lineHeight: 1.4 }}>
+              {chat.lastMessage}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: PreggaColors.neutral500 }}>
+              <span>{chat.messageCount} messages</span>
+              <span>{chat.lastMessageAt}</span>
+            </div>
+          </div>
+        )}
       />
     </div>
   );

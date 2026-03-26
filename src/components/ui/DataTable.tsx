@@ -23,6 +23,8 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   loading?: boolean;
   renderExpandedRow?: (row: T) => React.ReactNode;
+  isMobile?: boolean;
+  mobileCardRender?: (row: T) => React.ReactNode;
 }
 
 export function DataTable<T extends { id: string | number }>({
@@ -38,6 +40,8 @@ export function DataTable<T extends { id: string | number }>({
   emptyMessage = "No data found",
   loading = false,
   renderExpandedRow,
+  isMobile = false,
+  mobileCardRender,
 }: DataTableProps<T>) {
   const headerStyle: React.CSSProperties = {
     padding: "12px 16px",
@@ -84,6 +88,67 @@ export function DataTable<T extends { id: string | number }>({
           />
           <div style={{ color: PreggaColors.neutral500, fontSize: 14 }}>Loading...</div>
         </div>
+      </div>
+    );
+  }
+
+  // Mobile card view
+  if (isMobile && mobileCardRender) {
+    return (
+      <div>
+        {data.length === 0 ? (
+          <div
+            style={{
+              background: PreggaColors.white,
+              borderRadius: 16,
+              padding: 60,
+              textAlign: "center",
+              boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <div style={{ color: PreggaColors.neutral400, fontSize: 14 }}>{emptyMessage}</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {data.map((row) => (
+              <div
+                key={row.id}
+                onClick={() => onRowClick?.(row)}
+                style={{
+                  background: PreggaColors.white,
+                  borderRadius: 12,
+                  padding: 16,
+                  boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
+                  cursor: onRowClick ? "pointer" : "default",
+                }}
+              >
+                {mobileCardRender(row)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {totalPages > 0 && (
+          <div
+            style={{
+              marginTop: 16,
+              background: PreggaColors.white,
+              borderRadius: 12,
+              padding: "12px 16px",
+              boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
+              isMobile={true}
+            />
+          </div>
+        )}
       </div>
     );
   }

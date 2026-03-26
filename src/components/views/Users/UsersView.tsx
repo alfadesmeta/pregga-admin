@@ -149,19 +149,59 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
     setDoulaFilter("");
   };
 
+  const renderMobileCard = (user: User) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: PreggaColors.primary100,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: PreggaColors.primary600,
+              fontWeight: 600,
+              fontSize: 14,
+            }}
+          >
+            {user.name.split(" ").map((n) => n[0]).join("")}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>
+              {user.name}
+            </div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{user.email}</div>
+          </div>
+        </div>
+        <StatusBadge status={user.status} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+        <span style={{ color: PreggaColors.neutral500 }}>Week {user.pregnancyWeek}</span>
+        <span style={{ color: PreggaColors.neutral500 }}>Due: {user.dueDate}</span>
+      </div>
+      {user.assignedDoula && (
+        <div style={{ fontSize: 12, color: PreggaColors.neutral600 }}>
+          Doula: {user.assignedDoula}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Filters Row - No Card wrapper */}
+      {/* Filters Row */}
       <div
         style={{
           display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 12,
-          flexWrap: isMobile ? "wrap" : "nowrap",
         }}
       >
-        <div style={{ width: isMobile ? "100%" : 220 }}>
+        {/* Search - full width on mobile */}
+        <div style={{ width: "100%" }}>
           <Input
             placeholder="Search by name, email, or ID..."
             value={searchQuery}
@@ -171,63 +211,77 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
           />
         </div>
 
-        <div style={{ width: 130 }}>
-          <Select
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: "", label: "All Status" },
-              { value: "active", label: "Active" },
-              { value: "inactive", label: "Inactive" },
-              { value: "pending", label: "Pending" },
-            ]}
-          />
-        </div>
+        {/* Filters row */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <div style={{ width: isMobile ? "calc(50% - 4px)" : 130 }}>
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: "", label: "All Status" },
+                { value: "active", label: "Active" },
+                { value: "inactive", label: "Inactive" },
+                { value: "pending", label: "Pending" },
+              ]}
+            />
+          </div>
 
-        <div style={{ width: 150 }}>
-          <Select
-            value={doulaFilter}
-            onChange={setDoulaFilter}
-            options={[
-              { value: "", label: "All Doulas" },
-              ...doulasData.map((doula) => ({
-                value: doula.id,
-                label: doula.name,
-              })),
-            ]}
-          />
-        </div>
+          <div style={{ width: isMobile ? "calc(50% - 4px)" : 150 }}>
+            <Select
+              value={doulaFilter}
+              onChange={setDoulaFilter}
+              options={[
+                { value: "", label: "All Doulas" },
+                ...doulasData.map((doula) => ({
+                  value: doula.id,
+                  label: doula.name,
+                })),
+              ]}
+            />
+          </div>
 
-        {hasActiveFilters && (
-          <button
-            onClick={clearAllFilters}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              height: 42,
-              padding: "0 14px",
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
-              background: PreggaColors.white,
-              color: PreggaColors.neutral700,
-              fontSize: 14,
-              fontFamily: "'Inter', sans-serif",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                height: 42,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: `1px solid ${PreggaColors.neutral200}`,
+                background: PreggaColors.white,
+                color: PreggaColors.neutral700,
+                fontSize: 14,
+                fontFamily: "'Inter', sans-serif",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <X size={14} />
+              Clear
+            </button>
+          )}
+
+          {!isMobile && <div style={{ flex: 1 }} />}
+
+          <Button 
+            icon={<Plus size={16} />} 
+            onClick={() => setShowAddModal(true)}
+            fullWidth={isMobile}
           >
-            <X size={14} />
-            Clear
-          </button>
-        )}
-
-        <div style={{ flex: 1 }} />
-
-        <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)}>
-          Add User
-        </Button>
+            Add User
+          </Button>
+        </div>
       </div>
 
       {/* Data Table */}
@@ -242,6 +296,8 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
         onPageSizeChange={setPageSize}
         onRowClick={(row) => onNavigateToSubView?.(row.id)}
         emptyMessage="No users found"
+        isMobile={isMobile}
+        mobileCardRender={renderMobileCard}
       />
 
       {/* Add User Modal */}

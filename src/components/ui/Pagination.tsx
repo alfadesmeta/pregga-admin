@@ -9,6 +9,7 @@ interface PaginationProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
+  isMobile?: boolean;
 }
 
 export function Pagination({
@@ -18,6 +19,7 @@ export function Pagination({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  isMobile = false,
 }: PaginationProps) {
   const startItem = (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
@@ -41,6 +43,43 @@ export function Pagination({
     opacity: 0.5,
     cursor: "not-allowed",
   };
+
+  // Mobile simplified pagination
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
+          {startItem}-{endItem} of {totalItems}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            style={currentPage === 1 ? disabledStyle : buttonStyle}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span style={{ fontSize: 14, color: PreggaColors.neutral700, padding: "0 8px" }}>
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            style={currentPage === totalPages ? disabledStyle : buttonStyle}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -152,19 +152,62 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
     activeClients: doulasData.reduce((sum, d) => sum + d.activeClients, 0),
   };
 
+  const renderMobileCard = (doula: Doula) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: PreggaColors.sage100,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: PreggaColors.sage600,
+              fontWeight: 600,
+              fontSize: 14,
+            }}
+          >
+            {doula.name.split(" ").map((n) => n[0]).join("")}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>
+              {doula.name}
+            </div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{doula.email}</div>
+          </div>
+        </div>
+        <StatusBadge status={doula.status} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+        <span style={{ color: PreggaColors.neutral500 }}>{doula.activeClients} active clients</span>
+        <span style={{ color: PreggaColors.warning600 }}>★ {doula.rating}</span>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {doula.specializations.slice(0, 2).map((spec) => (
+          <Badge key={spec} variant="sage">{spec}</Badge>
+        ))}
+        {doula.specializations.length > 2 && (
+          <Badge variant="neutral">+{doula.specializations.length - 2}</Badge>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Filters Row - No Card wrapper */}
+      {/* Filters Row */}
       <div
         style={{
           display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 12,
-          flexWrap: isMobile ? "wrap" : "nowrap",
         }}
       >
-        <div style={{ width: isMobile ? "100%" : 220 }}>
+        {/* Search - full width */}
+        <div style={{ width: "100%" }}>
           <Input
             placeholder="Search by name, email, or ID..."
             value={searchQuery}
@@ -174,63 +217,77 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
           />
         </div>
 
-        <div style={{ width: 130 }}>
-          <Select
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: "", label: "All Status" },
-              { value: "verified", label: "Verified" },
-              { value: "pending", label: "Pending" },
-              { value: "inactive", label: "Inactive" },
-            ]}
-          />
-        </div>
+        {/* Filters row */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <div style={{ width: isMobile ? "calc(50% - 4px)" : 130 }}>
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: "", label: "All Status" },
+                { value: "verified", label: "Verified" },
+                { value: "pending", label: "Pending" },
+                { value: "inactive", label: "Inactive" },
+              ]}
+            />
+          </div>
 
-        <div style={{ width: 170 }}>
-          <Select
-            value={specializationFilter}
-            onChange={setSpecializationFilter}
-            options={[
-              { value: "", label: "All Specializations" },
-              ...allSpecializations.map((spec) => ({
-                value: spec,
-                label: spec,
-              })),
-            ]}
-          />
-        </div>
+          <div style={{ width: isMobile ? "calc(50% - 4px)" : 170 }}>
+            <Select
+              value={specializationFilter}
+              onChange={setSpecializationFilter}
+              options={[
+                { value: "", label: "All Specializations" },
+                ...allSpecializations.map((spec) => ({
+                  value: spec,
+                  label: spec,
+                })),
+              ]}
+            />
+          </div>
 
-        {hasActiveFilters && (
-          <button
-            onClick={clearAllFilters}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              height: 42,
-              padding: "0 14px",
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
-              background: PreggaColors.white,
-              color: PreggaColors.neutral700,
-              fontSize: 14,
-              fontFamily: "'Inter', sans-serif",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                height: 42,
+                padding: "0 14px",
+                borderRadius: 8,
+                border: `1px solid ${PreggaColors.neutral200}`,
+                background: PreggaColors.white,
+                color: PreggaColors.neutral700,
+                fontSize: 14,
+                fontFamily: "'Inter', sans-serif",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <X size={14} />
+              Clear
+            </button>
+          )}
+
+          {!isMobile && <div style={{ flex: 1 }} />}
+
+          <Button 
+            icon={<Plus size={16} />} 
+            onClick={() => setShowAddModal(true)}
+            fullWidth={isMobile}
           >
-            <X size={14} />
-            Clear
-          </button>
-        )}
-
-        <div style={{ flex: 1 }} />
-
-        <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)}>
-          Add Doula
-        </Button>
+            Add Doula
+          </Button>
+        </div>
       </div>
 
       {/* Stats Row */}
@@ -283,6 +340,8 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
         onPageSizeChange={setPageSize}
         onRowClick={(row) => onNavigateToSubView?.(row.id)}
         emptyMessage="No doulas found"
+        isMobile={isMobile}
+        mobileCardRender={renderMobileCard}
       />
 
       {/* Add Doula Modal */}

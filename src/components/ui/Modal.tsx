@@ -15,6 +15,8 @@ interface ModalProps {
 export function Modal({ open, onClose, title, children, width = 480, footer }: ModalProps) {
   if (!open) return null;
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
   const modalContent = (
     <div
       style={{
@@ -22,21 +24,21 @@ export function Modal({ open, onClose, title, children, width = 480, footer }: M
         inset: 0,
         zIndex: 9999,
         display: "flex",
-        alignItems: "center",
+        alignItems: isMobile ? "flex-end" : "center",
         justifyContent: "center",
         background: "rgba(45, 42, 38, 0.6)",
         backdropFilter: "blur(4px)",
-        padding: 20,
+        padding: isMobile ? 0 : 20,
       }}
     >
       <div
         style={{
           position: "relative",
           width: "100%",
-          maxWidth: width,
-          maxHeight: "90vh",
+          maxWidth: isMobile ? "100%" : width,
+          maxHeight: isMobile ? "85vh" : "90vh",
           background: PreggaColors.white,
-          borderRadius: 16,
+          borderRadius: isMobile ? "16px 16px 0 0" : 16,
           boxShadow: PreggaShadows.modal,
           overflow: "hidden",
           display: "flex",
