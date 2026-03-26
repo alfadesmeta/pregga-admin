@@ -192,35 +192,94 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Filters Row */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        {/* Search - full width on mobile */}
-        <div style={{ width: "100%" }}>
-          <Input
-            placeholder="Search by name, email, or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            icon={<Search size={16} />}
-            style={{ marginBottom: 0 }}
-          />
-        </div>
+      {/* Filters Section */}
+      {isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Search and Add Button Row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                icon={<Search size={16} />}
+                showClear
+                onClear={() => setSearchQuery("")}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
+            <Button 
+              icon={<Plus size={16} />} 
+              onClick={() => setShowAddModal(true)}
+              style={{ flexShrink: 0, height: 42 }}
+            >
+              Add
+            </Button>
+          </div>
 
-        {/* Filters row */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <div style={{ width: isMobile ? "calc(50% - 4px)" : 130 }}>
+          {/* Filters Row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: "", label: "All Status" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                  { value: "pending", label: "Pending" },
+                ]}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Select
+                value={doulaFilter}
+                onChange={setDoulaFilter}
+                options={[
+                  { value: "", label: "All Doulas" },
+                  ...doulasData.map((doula) => ({
+                    value: doula.id,
+                    label: doula.name,
+                  })),
+                ]}
+              />
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 42,
+                  height: 42,
+                  borderRadius: 8,
+                  border: `1px solid ${PreggaColors.neutral200}`,
+                  background: PreggaColors.white,
+                  color: PreggaColors.neutral500,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 280 }}>
+            <Input
+              placeholder="Search by name, email, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={<Search size={16} />}
+              showClear
+              onClear={() => setSearchQuery("")}
+              style={{ marginBottom: 0 }}
+            />
+          </div>
+          <div style={{ width: 130 }}>
             <Select
               value={statusFilter}
               onChange={setStatusFilter}
@@ -232,8 +291,7 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
               ]}
             />
           </div>
-
-          <div style={{ width: isMobile ? "calc(50% - 4px)" : 150 }}>
+          <div style={{ width: 150 }}>
             <Select
               value={doulaFilter}
               onChange={setDoulaFilter}
@@ -246,7 +304,6 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
               ]}
             />
           </div>
-
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
@@ -271,18 +328,15 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
               Clear
             </button>
           )}
-
-          {!isMobile && <div style={{ flex: 1 }} />}
-
+          <div style={{ flex: 1 }} />
           <Button 
             icon={<Plus size={16} />} 
             onClick={() => setShowAddModal(true)}
-            fullWidth={isMobile}
           >
             Add User
           </Button>
         </div>
-      </div>
+      )}
 
       {/* Data Table */}
       <DataTable

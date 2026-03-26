@@ -33,6 +33,11 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -77,6 +82,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
       case "Dashboard":
         return (
           <DashboardView
+            key={refreshKey}
             isMobile={isMobile}
             onNavigateToSubView={handleNavigateToSectionWithSubView}
           />
@@ -84,6 +90,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
       case "Users":
         return (
           <UsersView
+            key={refreshKey}
             isMobile={isMobile}
             subView={subView}
             onNavigateToSubView={navigateToSubView}
@@ -93,17 +100,17 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
       case "Doulas":
         return (
           <DoulasView
+            key={refreshKey}
             isMobile={isMobile}
             subView={subView}
             onNavigateToSubView={navigateToSubView}
             onGoBack={goBack}
-            onNavigateToUser={(userId) => handleNavigateToSectionWithSubView("Users", userId)}
           />
         );
       case "Chat Monitoring":
-        return <ChatView isMobile={isMobile} />;
+        return <ChatView key={refreshKey} isMobile={isMobile} />;
       default:
-        return <DashboardView isMobile={isMobile} />;
+        return <DashboardView key={refreshKey} isMobile={isMobile} />;
     }
   };
 
@@ -215,6 +222,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
               isMobile={isMobile}
               onMenuClick={() => setSidebarOpen(true)}
               onSearchClick={() => setSearchOpen(true)}
+              onRefresh={handleRefresh}
             />
 
             {/* Page Content with transition */}

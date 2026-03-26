@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import { PreggaColors } from "../../theme/colors";
+import { X } from "lucide-react";
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
   fullWidth?: boolean;
+  onClear?: () => void;
+  showClear?: boolean;
 }
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -19,14 +22,18 @@ export function Input({
   error,
   icon,
   fullWidth = true,
+  onClear,
+  showClear = false,
   style,
   ...props
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const hasValue = props.value && String(props.value).length > 0;
 
   const inputStyle: React.CSSProperties = {
     width: fullWidth ? "100%" : "auto",
     padding: icon ? "10px 14px 10px 40px" : "10px 14px",
+    paddingRight: (showClear && hasValue) ? 40 : 14,
     borderRadius: 8,
     border: `1px solid ${error ? PreggaColors.destructive400 : isFocused ? PreggaColors.accent400 : PreggaColors.neutral200}`,
     fontSize: 14,
@@ -86,6 +93,31 @@ export function Input({
             props.onBlur?.(e);
           }}
         />
+        {showClear && hasValue && onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            style={{
+              position: "absolute",
+              right: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: PreggaColors.neutral100,
+              border: "none",
+              borderRadius: 4,
+              width: 20,
+              height: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: PreggaColors.neutral500,
+              padding: 0,
+            }}
+          >
+            <X size={12} />
+          </button>
+        )}
       </div>
       {error && (
         <div style={{ fontSize: 12, color: PreggaColors.destructive500, marginTop: 4 }}>

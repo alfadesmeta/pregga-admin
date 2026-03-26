@@ -28,7 +28,6 @@ interface DoulasViewProps {
   subView?: string;
   onNavigateToSubView?: (id: string) => void;
   onGoBack?: () => void;
-  onNavigateToUser?: (userId: string) => void;
 }
 
 // Get unique specializations from doulas data
@@ -36,7 +35,7 @@ const allSpecializations = Array.from(
   new Set(doulasData.flatMap((d) => d.specializations))
 );
 
-export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUser }: DoulasViewProps) {
+export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack }: DoulasViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("");
@@ -69,7 +68,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
   if (subView) {
     const doula = doulasData.find((d) => d.id === subView);
     if (doula) {
-      return <DoulaDetailView doula={doula} isMobile={isMobile} onGoBack={onGoBack} onViewClient={onNavigateToUser} />;
+      return <DoulaDetailView doula={doula} isMobile={isMobile} onGoBack={onGoBack} />;
     }
   }
 
@@ -198,35 +197,94 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Filters Row */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        {/* Search - full width */}
-        <div style={{ width: "100%" }}>
-          <Input
-            placeholder="Search by name, email, or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            icon={<Search size={16} />}
-            style={{ marginBottom: 0 }}
-          />
-        </div>
+      {/* Filters Section */}
+      {isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Search and Add Button Row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                icon={<Search size={16} />}
+                showClear
+                onClear={() => setSearchQuery("")}
+                style={{ marginBottom: 0 }}
+              />
+            </div>
+            <Button 
+              icon={<Plus size={16} />} 
+              onClick={() => setShowAddModal(true)}
+              style={{ flexShrink: 0, height: 42 }}
+            >
+              Add
+            </Button>
+          </div>
 
-        {/* Filters row */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <div style={{ width: isMobile ? "calc(50% - 4px)" : 130 }}>
+          {/* Filters Row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: "", label: "All Status" },
+                  { value: "verified", label: "Verified" },
+                  { value: "pending", label: "Pending" },
+                  { value: "inactive", label: "Inactive" },
+                ]}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Select
+                value={specializationFilter}
+                onChange={setSpecializationFilter}
+                options={[
+                  { value: "", label: "Specialization" },
+                  ...allSpecializations.map((spec) => ({
+                    value: spec,
+                    label: spec,
+                  })),
+                ]}
+              />
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 42,
+                  height: 42,
+                  borderRadius: 8,
+                  border: `1px solid ${PreggaColors.neutral200}`,
+                  background: PreggaColors.white,
+                  color: PreggaColors.neutral500,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 280 }}>
+            <Input
+              placeholder="Search by name, email, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={<Search size={16} />}
+              showClear
+              onClear={() => setSearchQuery("")}
+              style={{ marginBottom: 0 }}
+            />
+          </div>
+          <div style={{ width: 130 }}>
             <Select
               value={statusFilter}
               onChange={setStatusFilter}
@@ -238,8 +296,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               ]}
             />
           </div>
-
-          <div style={{ width: isMobile ? "calc(50% - 4px)" : 170 }}>
+          <div style={{ width: 170 }}>
             <Select
               value={specializationFilter}
               onChange={setSpecializationFilter}
@@ -252,7 +309,6 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               ]}
             />
           </div>
-
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
@@ -277,18 +333,15 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               Clear
             </button>
           )}
-
-          {!isMobile && <div style={{ flex: 1 }} />}
-
+          <div style={{ flex: 1 }} />
           <Button 
             icon={<Plus size={16} />} 
             onClick={() => setShowAddModal(true)}
-            fullWidth={isMobile}
           >
             Add Doula
           </Button>
         </div>
-      </div>
+      )}
 
       {/* Stats Row */}
       <div
@@ -813,12 +866,10 @@ function DoulaDetailView({
   doula,
   isMobile,
   onGoBack,
-  onViewClient,
 }: {
   doula: Doula;
   isMobile: boolean;
   onGoBack?: () => void;
-  onViewClient?: (clientId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "clients" | "sessions" | "delete">("overview");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1138,20 +1189,6 @@ function DoulaDetailView({
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => onViewClient?.(client.id)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: PreggaColors.sage600,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      cursor: "pointer",
-                      fontFamily: "'Inter', sans-serif",
-                    }}
-                  >
-                    View Profile
-                  </button>
                 </div>
               </Card>
             ))}

@@ -265,25 +265,70 @@ export function ChatView({ isMobile }: ChatViewProps) {
         />
       </div>
 
-      {/* Filters Row */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        <div style={{ width: "100%" }}>
-          <Input
-            placeholder="Search by name or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            icon={<Search size={16} />}
-          />
-        </div>
+      {/* Filters Section */}
+      {isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Search Row */}
+          <div style={{ width: "100%" }}>
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={<Search size={16} />}
+              showClear
+              onClear={() => setSearchQuery("")}
+            />
+          </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ width: isMobile ? "calc(50% - 4px)" : 130 }}>
+          {/* Filter Row */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Select
+                value={statusFilter}
+                onChange={(val) => setStatusFilter(val)}
+                options={[
+                  { value: "", label: "All Status" },
+                  { value: "active", label: "Active" },
+                  { value: "archived", label: "Archived" },
+                  { value: "flagged", label: "Flagged" },
+                ]}
+              />
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 42,
+                  height: 42,
+                  borderRadius: 8,
+                  border: `1px solid ${PreggaColors.neutral200}`,
+                  background: PreggaColors.white,
+                  color: PreggaColors.neutral500,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 280 }}>
+            <Input
+              placeholder="Search by name or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={<Search size={16} />}
+              showClear
+              onClear={() => setSearchQuery("")}
+            />
+          </div>
+          <div style={{ width: 130 }}>
             <Select
               value={statusFilter}
               onChange={(val) => setStatusFilter(val)}
@@ -295,7 +340,6 @@ export function ChatView({ isMobile }: ChatViewProps) {
               ]}
             />
           </div>
-
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
@@ -321,7 +365,7 @@ export function ChatView({ isMobile }: ChatViewProps) {
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {/* Chat Table */}
       <DataTable
@@ -366,7 +410,7 @@ export function ChatView({ isMobile }: ChatViewProps) {
                   </div>
                 </div>
               </div>
-              <Badge variant={chat.status === "active" ? "success" : chat.status === "flagged" ? "warning" : "secondary"}>
+              <Badge variant={chat.status === "active" ? "sage" : chat.status === "flagged" ? "warning" : "neutral"}>
                 {chat.status}
               </Badge>
             </div>
