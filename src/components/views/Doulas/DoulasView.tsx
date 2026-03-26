@@ -28,6 +28,7 @@ interface DoulasViewProps {
   subView?: string;
   onNavigateToSubView?: (id: string) => void;
   onGoBack?: () => void;
+  onNavigateToUserWithReturn?: (userId: string) => void;
 }
 
 // Get unique specializations from doulas data
@@ -35,7 +36,7 @@ const allSpecializations = Array.from(
   new Set(doulasData.flatMap((d) => d.specializations))
 );
 
-export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack }: DoulasViewProps) {
+export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUserWithReturn }: DoulasViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("");
@@ -68,7 +69,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack }:
   if (subView) {
     const doula = doulasData.find((d) => d.id === subView);
     if (doula) {
-      return <DoulaDetailView doula={doula} isMobile={isMobile} onGoBack={onGoBack} />;
+      return <DoulaDetailView doula={doula} isMobile={isMobile} onGoBack={onGoBack} onViewClient={onNavigateToUserWithReturn} />;
     }
   }
 
@@ -866,10 +867,12 @@ function DoulaDetailView({
   doula,
   isMobile,
   onGoBack,
+  onViewClient,
 }: {
   doula: Doula;
   isMobile: boolean;
   onGoBack?: () => void;
+  onViewClient?: (clientId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "clients" | "sessions" | "delete">("overview");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1189,6 +1192,13 @@ function DoulaDetailView({
                       </div>
                     </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewClient?.(client.id)}
+                  >
+                    View Profile
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -1402,6 +1412,7 @@ function DoulaDetailView({
         onClose={() => setShowDeleteModal(false)}
         onConfirm={handleDeleteDoula}
       />
+
     </div>
   );
 }

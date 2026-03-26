@@ -34,9 +34,24 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [returnTo, setReturnTo] = useState<{ section: Section; subView?: string } | null>(null);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleNavigateToUserWithReturn = (userId: string) => {
+    setReturnTo({ section, subView });
+    navigate({ section: "Users", subView: userId });
+  };
+
+  const handleGoBackWithReturn = () => {
+    if (returnTo) {
+      navigate({ section: returnTo.section, subView: returnTo.subView });
+      setReturnTo(null);
+    } else {
+      goBack();
+    }
   };
 
   useEffect(() => {
@@ -94,7 +109,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
             isMobile={isMobile}
             subView={subView}
             onNavigateToSubView={navigateToSubView}
-            onGoBack={goBack}
+            onGoBack={handleGoBackWithReturn}
           />
         );
       case "Doulas":
@@ -105,6 +120,7 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
             subView={subView}
             onNavigateToSubView={navigateToSubView}
             onGoBack={goBack}
+            onNavigateToUserWithReturn={handleNavigateToUserWithReturn}
           />
         );
       case "Chat Monitoring":
