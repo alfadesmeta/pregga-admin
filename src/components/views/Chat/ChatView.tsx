@@ -202,30 +202,6 @@ export function ChatView({ isMobile }: ChatViewProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Header */}
-      <div>
-        <h1
-          style={{
-            fontSize: 24,
-            fontWeight: 600,
-            color: PreggaColors.neutral900,
-            margin: 0,
-            fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          Chat Monitoring
-        </h1>
-        <p
-          style={{
-            fontSize: 14,
-            color: PreggaColors.neutral500,
-            margin: "4px 0 0",
-          }}
-        >
-          Monitor and manage all chat sessions
-        </p>
-      </div>
-
       {/* Stats Row */}
       <div
         style={{

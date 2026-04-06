@@ -1,51 +1,56 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export function useCountUp(endValue: number, duration: number = 1500, delay: number = 0) {
   const [count, setCount] = useState(0);
-  const countRef = useRef(0);
-  const startTimeRef = useRef<number | null>(null);
-  const animationFrameRef = useRef<number>();
+  const endValueRef = useRef(endValue);
+  const durationRef = useRef(duration);
 
-  const animate = useCallback((timestamp: number) => {
-    if (startTimeRef.current === null) {
-      startTimeRef.current = timestamp;
-    }
-    
-    const elapsed = timestamp - startTimeRef.current;
-    const progress = Math.min(elapsed / duration, 1);
-    
-    // Easing function for smooth deceleration
-    const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-    const currentCount = Math.floor(easeOutQuart * endValue);
-    
-    if (currentCount !== countRef.current) {
-      countRef.current = currentCount;
-      setCount(currentCount);
-    }
-    
-    if (progress < 1) {
-      animationFrameRef.current = requestAnimationFrame(animate);
-    } else {
-      setCount(endValue);
-    }
+  useEffect(() => {
+    endValueRef.current = endValue;
+    durationRef.current = duration;
   }, [endValue, duration]);
 
   useEffect(() => {
-    setCount(0);
-    countRef.current = 0;
-    startTimeRef.current = null;
-    
-    const timeoutId = setTimeout(() => {
-      animationFrameRef.current = requestAnimationFrame(animate);
-    }, delay);
-    
-    return () => {
-      clearTimeout(timeoutId);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+    let animationFrameId: number;
+    let startTime: number | null = null;
+    let currentCount = 0;
+
+    const animate = (timestamp: number) => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / durationRef.current, 1);
+
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const newCount = Math.floor(easeOutQuart * endValueRef.current);
+
+      if (newCount !== currentCount) {
+        currentCount = newCount;
+        setCount(newCount);
+      }
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      } else {
+        setCount(endValueRef.current);
       }
     };
-  }, [animate, delay, endValue]);
+
+    setCount(0);
+
+    const timeoutId = setTimeout(() => {
+      animationFrameId = requestAnimationFrame(animate);
+    }, delay);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [delay]);
 
   return count;
 }
