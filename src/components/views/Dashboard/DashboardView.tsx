@@ -23,6 +23,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import {
   fetchDashboardStats,
@@ -39,8 +40,8 @@ interface DashboardViewProps {
   onNavigateToSection?: (section: string) => void;
 }
 
-const chartLineColor = "#6B7B5F";
-const chartFillColor = "#E8EBE5";
+const chartLineColor = PreggaColors.sage500;
+const chartFillColor = PreggaColors.sage100;
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -155,6 +156,7 @@ function ShimmerKPICard() {
 export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSection }: DashboardViewProps) {
   const [chartVisible, setChartVisible] = useState(false);
   const [chartKey, setChartKey] = useState(0);
+  const [chartPeriod, setChartPeriod] = useState<"week" | "month">("week");
 
   const { data: stats, isLoading: statsLoading, error: statsError } = useSupabaseQuery<DashboardStats>(
     ['dashboard', 'stats'],
@@ -171,30 +173,39 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
     fetchPendingVerifications
   );
 
-  const { data: dailyData, isLoading: chartLoading } = useSupabaseQuery<{ date: string; count: number }[]>(
-    ['dashboard', 'dailyRegistrations'],
+  const { data: weeklyData, isLoading: weeklyLoading } = useSupabaseQuery<{ date: string; count: number }[]>(
+    ['dashboard', 'dailyRegistrations', 'week'],
+    () => fetchDailyRegistrations(7)
+  );
+
+  const { data: monthlyData, isLoading: monthlyLoading } = useSupabaseQuery<{ date: string; count: number }[]>(
+    ['dashboard', 'dailyRegistrations', 'month'],
     () => fetchDailyRegistrations(30)
   );
+
+  const chartLoading = chartPeriod === "week" ? weeklyLoading : monthlyLoading;
 
   useEffect(() => {
     setChartVisible(false);
     setChartKey(prev => prev + 1);
     const timer = setTimeout(() => setChartVisible(true), 400);
     return () => clearTimeout(timer);
-  }, []);
+  }, [chartPeriod]);
 
-  const chartData = dailyData?.map(item => ({
+  const weekChartData = weeklyData?.map(item => ({
+    day: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
+    value: item.count,
+    fullDate: new Date(item.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+  })) || [];
+
+  const monthChartData = monthlyData?.map(item => ({
     day: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     value: item.count,
     fullDate: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
   })) || [];
 
+  const chartData = chartPeriod === "week" ? weekChartData : monthChartData;
   const totalRegistrations = chartData.reduce((sum, d) => sum + d.value, 0);
-  const firstHalf = chartData.slice(0, Math.floor(chartData.length / 2));
-  const secondHalf = chartData.slice(Math.floor(chartData.length / 2));
-  const firstHalfTotal = firstHalf.reduce((sum, d) => sum + d.value, 0);
-  const secondHalfTotal = secondHalf.reduce((sum, d) => sum + d.value, 0);
-  const growthPercent = firstHalfTotal > 0 ? Math.round(((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100) : 0;
 
   const recentActivities = recentUsers?.map(user => ({
     id: user.id,
@@ -295,90 +306,17 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
             gap: 20,
           }}
         >
-          <Card 
-            title="User Registrations" 
-            subtitle={`Last 30 days${totalRegistrations > 0 ? ` • ${totalRegistrations} total${growthPercent !== 0 ? ` • ${growthPercent > 0 ? '+' : ''}${growthPercent}% vs prev period` : ''}` : ''}`}
+          <ChartCard
+            title="User Registrations"
+            totalValue={totalRegistrations}
+            chartData={chartData}
+            chartLoading={chartLoading}
+            chartVisible={chartVisible}
+            chartKey={chartKey}
+            period={chartPeriod}
+            onPeriodChange={setChartPeriod}
             delay={400}
-          >
-            <div
-              style={{
-                height: 280,
-                opacity: chartVisible && !chartLoading ? 1 : 0,
-                transform: chartVisible && !chartLoading ? "translateY(0)" : "translateY(20px)",
-                transition: "opacity 0.6s ease, transform 0.6s ease",
-              }}
-            >
-              {chartLoading ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                  <Shimmer width="90%" height={200} borderRadius={8} />
-                </div>
-              ) : chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    key={chartKey}
-                    data={chartData}
-                    margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={chartFillColor} stopOpacity={0.8} />
-                        <stop offset="95%" stopColor={chartFillColor} stopOpacity={0.1} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="day"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: PreggaColors.neutral400 }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: PreggaColors.neutral400 }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 8,
-                        border: `1px solid ${PreggaColors.neutral200}`,
-                        boxShadow: PreggaShadows.card,
-                        fontSize: 13,
-                        background: PreggaColors.white,
-                      }}
-                      labelFormatter={(_, payload) => {
-                        if (payload && payload[0]?.payload?.fullDate) {
-                          return payload[0].payload.fullDate;
-                        }
-                        return '';
-                      }}
-                      formatter={(value: number) => [`${value} registrations`, 'New Users']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke={chartLineColor}
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorValue)"
-                      animationBegin={200}
-                      animationDuration={1500}
-                      animationEasing="ease-out"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center", 
-                  height: "100%",
-                  color: PreggaColors.neutral400,
-                  fontSize: 14,
-                }}>
-                  No registration data available
-                </div>
-              )}
-            </div>
-          </Card>
+          />
 
           <Card title="Doula Status" subtitle="Availability overview" delay={450}>
             {verificationsLoading ? (
@@ -705,6 +643,255 @@ function AnimatedStatCard({
         >
           {subtitleColor && <TrendingUp size={12} />}
           {subtitle}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ChartCardProps {
+  title: string;
+  totalValue: number;
+  chartData: { day: string; value: number; fullDate: string }[];
+  chartLoading: boolean;
+  chartVisible: boolean;
+  chartKey: number;
+  period: "week" | "month";
+  onPeriodChange: (period: "week" | "month") => void;
+  delay?: number;
+}
+
+function ChartCard({
+  title,
+  totalValue,
+  chartData,
+  chartLoading,
+  chartVisible,
+  chartKey,
+  period,
+  onPeriodChange,
+  delay = 0,
+}: ChartCardProps) {
+  const [isVisible, setIsVisible] = useState(false);
+  const animatedTotal = useCountUp(totalValue, 1500, delay);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  const subtitle = period === "week" ? "7-Day Registrations" : "30-Day Registrations";
+  const bottomLabel = period === "week" ? "New users this week" : "New users this month";
+
+  return (
+    <div
+      style={{
+        background: PreggaColors.white,
+        borderRadius: 16,
+        padding: 20,
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? "translateY(0)" : "translateY(10px)",
+        transition: "opacity 0.4s ease, transform 0.4s ease",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Title */}
+      <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, marginBottom: 16 }}>
+        {title}
+      </div>
+
+      {/* Subtitle Row - subtitle left, number+icon right */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{subtitle}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 22, fontWeight: 700, color: PreggaColors.neutral900 }}>
+            {animatedTotal}
+          </span>
+          <TrendingUp size={16} color={PreggaColors.success500} />
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div
+        style={{
+          height: 200,
+          opacity: chartVisible && !chartLoading ? 1 : 0,
+          transform: chartVisible && !chartLoading ? "translateY(0)" : "translateY(10px)",
+          transition: "opacity 0.6s ease, transform 0.6s ease",
+        }}
+      >
+        {chartLoading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+            <Shimmer width="90%" height={160} borderRadius={8} />
+          </div>
+        ) : chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              key={chartKey}
+              data={chartData}
+              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={chartLineColor} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={chartLineColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={PreggaColors.neutral200}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="day"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 11, fill: PreggaColors.neutral500 }}
+                interval={period === "month" ? "preserveStartEnd" : 0}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 11, fill: PreggaColors.neutral500 }}
+                allowDecimals={false}
+                domain={[0, (dataMax: number) => Math.max(dataMax * 1.2, 5)]}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div
+                        style={{
+                          background: PreggaColors.white,
+                          borderRadius: 8,
+                          border: `1px solid ${PreggaColors.neutral200}`,
+                          boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+                          padding: "10px 14px",
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 600, color: PreggaColors.neutral900, marginBottom: 4 }}>
+                          {payload[0]?.payload?.fullDate || label}
+                        </div>
+                        <div style={{ fontSize: 13, color: PreggaColors.neutral700 }}>
+                          <span style={{ fontWeight: 600, color: PreggaColors.sage600 }}>
+                            {payload[0].value}
+                          </span>
+                          {" "}registrations
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={chartLineColor}
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#chartGradient)"
+                animationBegin={400}
+                animationDuration={1200}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              color: PreggaColors.neutral400,
+              fontSize: 14,
+            }}
+          >
+            No registration data available
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Row - Toggle and Summary */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          marginTop: 14,
+          padding: "12px 14px",
+          background: PreggaColors.sage50,
+          borderRadius: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: PreggaColors.sage100,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: PreggaColors.sage600,
+            }}
+          >
+            <TrendingUp size={16} />
+          </div>
+          <div>
+            <span style={{ fontSize: 20, fontWeight: 700, color: PreggaColors.neutral900, marginRight: 6 }}>
+              {animatedTotal}
+            </span>
+            <span style={{ fontSize: 13, color: PreggaColors.neutral600 }}>{bottomLabel}</span>
+          </div>
+        </div>
+
+        {/* Period Toggle */}
+        <div
+          style={{
+            display: "flex",
+            background: PreggaColors.white,
+            borderRadius: 8,
+            padding: 3,
+            border: `1px solid ${PreggaColors.neutral200}`,
+          }}
+        >
+          <button
+            onClick={() => onPeriodChange("week")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "none",
+              background: period === "week" ? PreggaColors.sage500 : "transparent",
+              color: period === "week" ? PreggaColors.white : PreggaColors.neutral600,
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            Week
+          </button>
+          <button
+            onClick={() => onPeriodChange("month")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "none",
+              background: period === "month" ? PreggaColors.sage500 : "transparent",
+              color: period === "month" ? PreggaColors.white : PreggaColors.neutral600,
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            Month
+          </button>
         </div>
       </div>
     </div>

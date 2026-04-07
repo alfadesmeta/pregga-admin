@@ -24,7 +24,7 @@ export function Modal({
   children,
   width = 480,
   footer,
-  closeOnOverlayClick = true,
+  closeOnOverlayClick = false,
   closeOnEscape = true,
   showCloseButton = true,
 }: ModalProps) {

@@ -41,6 +41,7 @@ interface UsersViewProps {
   subView?: string;
   onNavigateToSubView?: (id: string) => void;
   onGoBack?: () => void;
+  onNavigateToConversation?: (conversationId: string) => void;
 }
 
 function formatDate(dateStr: string): string {
@@ -91,7 +92,7 @@ function Shimmer({ width = "100%", height = 20, borderRadius = 6 }: { width?: st
   );
 }
 
-export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: UsersViewProps) {
+export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToConversation }: UsersViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<UserFilters>({});
 
@@ -118,6 +119,7 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack }: 
         isMobile={isMobile}
         onGoBack={onGoBack}
         onRefresh={refetch}
+        onNavigateToConversation={onNavigateToConversation}
       />
     );
   }
@@ -395,16 +397,19 @@ function UserDetailView({
   isMobile,
   onGoBack,
   onRefresh,
+  onNavigateToConversation,
 }: {
   userId: string;
   isMobile: boolean;
   onGoBack?: () => void;
   onRefresh?: () => void;
+  onNavigateToConversation?: (conversationId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"profile" | "pregnancy" | "subscription" | "conversations" | "broadcasts" | "delete">("profile");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const { data: user, isLoading, error, refetch } = useSupabaseQuery<UserWithProfile | null>(
     ['user', userId],
@@ -707,6 +712,7 @@ function UserDetailView({
                 {conversations.map((conv) => (
                   <div
                     key={conv.id}
+                    onClick={() => onNavigateToConversation?.(conv.id)}
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
@@ -721,7 +727,7 @@ function UserDetailView({
                     onMouseLeave={(e) => e.currentTarget.style.background = PreggaColors.neutral50}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 10, background: PreggaColors.rose100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.rose600 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600 }}>
                         <MessageCircle size={18} />
                       </div>
                       <div>
@@ -815,15 +821,34 @@ function UserDetailView({
                 <p style={{ fontSize: 13, color: PreggaColors.neutral600, margin: "0 0 16px", lineHeight: 1.5 }}>
                   This will create a deletion request for this user. All associated data including pregnancy info, conversations, and subscription history will be scheduled for permanent removal. This action cannot be undone.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
                   onClick={() => setShowDeleteModal(true)}
-                  style={{ borderColor: PreggaColors.error400, color: PreggaColors.error600, background: PreggaColors.white }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    borderRadius: 8,
+                    border: `1px solid ${PreggaColors.error400}`,
+                    color: PreggaColors.error600,
+                    background: PreggaColors.white,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = PreggaColors.error50;
+                    e.currentTarget.style.borderColor = PreggaColors.error500;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = PreggaColors.white;
+                    e.currentTarget.style.borderColor = PreggaColors.error400;
+                  }}
                 >
                   <Trash2 size={14} />
                   Delete User
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -847,19 +872,23 @@ function UserDetailView({
         }}
       />
 
-      {/* Delete Modal */}
+      {/* Delete Modal with DELETE verification */}
       <Modal
         open={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
+        onClose={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
         title=""
         width={420}
         footer={
           <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}>Cancel</Button>
             <Button
               onClick={handleDeleteUser}
               loading={isDeleting}
-              style={{ background: PreggaColors.error500 }}
+              disabled={deleteConfirmText !== "DELETE"}
+              style={{ 
+                background: deleteConfirmText === "DELETE" ? PreggaColors.error500 : PreggaColors.neutral300,
+                cursor: deleteConfirmText === "DELETE" ? "pointer" : "not-allowed",
+              }}
             >
               Delete User
             </Button>
@@ -873,10 +902,34 @@ function UserDetailView({
           <h3 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>
             Delete User Account?
           </h3>
-          <p style={{ fontSize: 14, color: PreggaColors.neutral500, lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontSize: 14, color: PreggaColors.neutral500, lineHeight: 1.6, margin: "0 0 20px" }}>
             Are you sure you want to delete <strong style={{ color: PreggaColors.neutral700 }}>{user.display_name || "this user"}</strong>?
             This will create a deletion request and schedule the account for permanent removal.
           </p>
+          <div style={{ textAlign: "left" }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
+              Type <span style={{ fontFamily: "monospace", background: PreggaColors.neutral100, padding: "2px 6px", borderRadius: 4, color: PreggaColors.error600 }}>DELETE</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 14,
+                border: `1px solid ${deleteConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}`,
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: "monospace",
+                letterSpacing: "1px",
+                transition: "border-color 0.15s ease",
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
+              onBlur={(e) => e.currentTarget.style.borderColor = deleteConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}
+            />
+          </div>
         </div>
       </Modal>
     </div>

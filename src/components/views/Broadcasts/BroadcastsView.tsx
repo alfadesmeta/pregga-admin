@@ -9,6 +9,7 @@ import { Badge, StatusBadge } from "../../ui/Badge";
 import { DataTable } from "../../ui/DataTable";
 import { Select } from "../../ui/Select";
 import { Modal } from "../../ui/Modal";
+import { ShimmerKPICard } from "../../ui/Shimmer";
 import {
   fetchBroadcasts,
   fetchBroadcastById,
@@ -39,6 +40,8 @@ interface BroadcastsViewProps {
   subView?: string;
   onNavigateToSubView?: (subView: string) => void;
   onGoBack?: () => void;
+  onNavigateToUser?: (userId: string) => void;
+  onNavigateToDoula?: (doulaId: string) => void;
 }
 
 function formatDate(dateStr: string): string {
@@ -71,7 +74,7 @@ function getStatusBadgeVariant(status: BroadcastStatus): "sage" | "warning" | "n
   }
 }
 
-export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBack }: BroadcastsViewProps) {
+export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUser, onNavigateToDoula }: BroadcastsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<BroadcastFilters>({});
 
@@ -121,6 +124,8 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
         onGoBack={handleGoBack}
         onRefresh={refetch}
         isMobile={isMobile}
+        onNavigateToUser={onNavigateToUser}
+        onNavigateToDoula={onNavigateToDoula}
       />
     );
   }
@@ -184,26 +189,26 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
         </Badge>
       ),
     },
-    {
-      key: "actions",
-      label: "",
-      render: (_: unknown, broadcast: BroadcastWithDetails) => (
-        <Button variant="outline" size="sm" onClick={() => handleSelectBroadcast(broadcast.id)}>
-          View
-        </Button>
-      ),
-    },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
-        <StatCard label="Total" value={count} icon={<Radio size={18} />} color={PreggaColors.sage500} delay={0} />
-        <StatCard label="Pending" value={pendingCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={100} />
-        <StatCard label="Accepted" value={acceptedCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={200} />
-        <StatCard label="Expired" value={expiredCount} icon={<XCircle size={18} />} color={PreggaColors.neutral400} delay={300} />
-      </div>
+      {/* Stats with Shimmer Loading */}
+      {isLoading ? (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+          <ShimmerKPICard delay={0} />
+          <ShimmerKPICard delay={80} />
+          <ShimmerKPICard delay={160} />
+          <ShimmerKPICard delay={240} />
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+          <StatCard label="Total" value={count} icon={<Radio size={18} />} color={PreggaColors.sage500} delay={0} />
+          <StatCard label="Pending" value={pendingCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={100} />
+          <StatCard label="Accepted" value={acceptedCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={200} />
+          <StatCard label="Expired" value={expiredCount} icon={<XCircle size={18} />} color={PreggaColors.neutral400} delay={300} />
+        </div>
+      )}
 
       {/* Filters */}
       {isMobile ? (
@@ -268,6 +273,7 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
         totalItems={count}
         pageSize={pageSize}
         onPageChange={setPage}
+        onRowClick={(broadcast) => handleSelectBroadcast(broadcast.id)}
         emptyMessage="No broadcast requests found"
         isMobile={isMobile}
         isLoading={isLoading}
@@ -321,15 +327,20 @@ function BroadcastDetailView({
   onGoBack,
   onRefresh,
   isMobile,
+  onNavigateToUser,
+  onNavigateToDoula,
 }: {
   broadcastId: string;
   onGoBack: () => void;
   onRefresh: () => void;
   isMobile: boolean;
+  onNavigateToUser?: (userId: string) => void;
+  onNavigateToDoula?: (doulaId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"user" | "message" | "doulas" | "actions">("user");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cancelConfirmText, setCancelConfirmText] = useState("");
 
   const { data: broadcast, isLoading, error, refetch } = useSupabaseQuery<BroadcastWithDetails | null>(
     ['broadcast', broadcastId],
@@ -431,14 +442,37 @@ function BroadcastDetailView({
             </h3>
           </div>
           <div style={{ padding: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div 
+              onClick={() => broadcast.user?.id && onNavigateToUser?.(broadcast.user.id)}
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 16,
+                cursor: broadcast.user?.id && onNavigateToUser ? "pointer" : "default",
+                padding: 12,
+                margin: -12,
+                borderRadius: 12,
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (broadcast.user?.id && onNavigateToUser) {
+                  e.currentTarget.style.background = PreggaColors.neutral50;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
               <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
                 {(broadcast.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.user?.display_name || "Unknown User"}</div>
                 <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.user?.email || broadcast.user?.phone || "No contact"}</div>
               </div>
+              {broadcast.user?.id && onNavigateToUser && (
+                <div style={{ color: PreggaColors.neutral400, fontSize: 12 }}>View Profile →</div>
+              )}
             </div>
           </div>
         </Card>
@@ -471,14 +505,37 @@ function BroadcastDetailView({
                 </h3>
               </div>
               <div style={{ padding: 24 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div 
+                  onClick={() => broadcast.accepted_doula?.id && onNavigateToDoula?.(broadcast.accepted_doula.id)}
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: 16,
+                    cursor: broadcast.accepted_doula?.id && onNavigateToDoula ? "pointer" : "default",
+                    padding: 12,
+                    margin: -12,
+                    borderRadius: 12,
+                    transition: "background 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (broadcast.accepted_doula?.id && onNavigateToDoula) {
+                      e.currentTarget.style.background = PreggaColors.neutral50;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600 }}>
                     {(broadcast.accepted_doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </div>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.accepted_doula?.display_name || "Unknown Doula"}</div>
                     <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.accepted_doula?.email || broadcast.accepted_doula?.phone || "No contact"}</div>
                   </div>
+                  {broadcast.accepted_doula?.id && onNavigateToDoula && (
+                    <div style={{ color: PreggaColors.neutral400, fontSize: 12 }}>View Profile →</div>
+                  )}
                 </div>
               </div>
             </Card>
@@ -496,14 +553,40 @@ function BroadcastDetailView({
               <div style={{ padding: 16 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {broadcast.rejections.map((rejection) => (
-                    <div key={rejection.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 12, background: PreggaColors.neutral50, borderRadius: 8 }}>
+                    <div 
+                      key={rejection.id} 
+                      onClick={() => rejection.doula?.id && onNavigateToDoula?.(rejection.doula.id)}
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "space-between", 
+                        padding: 12, 
+                        background: PreggaColors.neutral50, 
+                        borderRadius: 8,
+                        cursor: rejection.doula?.id && onNavigateToDoula ? "pointer" : "default",
+                        transition: "background 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (rejection.doula?.id && onNavigateToDoula) {
+                          e.currentTarget.style.background = PreggaColors.neutral100;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = PreggaColors.neutral50;
+                      }}
+                    >
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.rose100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.rose600, fontSize: 12, fontWeight: 600 }}>
                           {(rejection.doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <span style={{ fontWeight: 500 }}>{rejection.doula?.display_name || "Unknown Doula"}</span>
                       </div>
-                      <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.created_at)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.created_at)}</span>
+                        {rejection.doula?.id && onNavigateToDoula && (
+                          <span style={{ color: PreggaColors.neutral400, fontSize: 11 }}>→</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -547,16 +630,26 @@ function BroadcastDetailView({
         </Card>
       )}
 
-      {/* Cancel Modal */}
+      {/* Cancel Modal with DELETE verification */}
       <Modal
         open={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
+        onClose={() => { setShowCancelModal(false); setCancelConfirmText(""); }}
         title=""
-        width={400}
+        width={420}
         footer={
           <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-            <Button variant="outline" onClick={() => setShowCancelModal(false)}>Keep Active</Button>
-            <Button onClick={handleCancel} loading={isProcessing} style={{ background: PreggaColors.error500 }}>Cancel Broadcast</Button>
+            <Button variant="outline" onClick={() => { setShowCancelModal(false); setCancelConfirmText(""); }}>Keep Active</Button>
+            <Button 
+              onClick={handleCancel} 
+              loading={isProcessing} 
+              disabled={cancelConfirmText !== "DELETE"}
+              style={{ 
+                background: cancelConfirmText === "DELETE" ? PreggaColors.error500 : PreggaColors.neutral300,
+                cursor: cancelConfirmText === "DELETE" ? "pointer" : "not-allowed",
+              }}
+            >
+              Cancel Broadcast
+            </Button>
           </div>
         }
       >
@@ -565,9 +658,34 @@ function BroadcastDetailView({
             <XCircle size={28} color={PreggaColors.error500} />
           </div>
           <h3 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>Cancel this broadcast?</h3>
-          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 20px", lineHeight: 1.5 }}>
             This will cancel the broadcast request. The user will need to create a new request to connect with a doula.
           </p>
+          <div style={{ textAlign: "left" }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
+              Type <span style={{ fontFamily: "monospace", background: PreggaColors.neutral100, padding: "2px 6px", borderRadius: 4, color: PreggaColors.error600 }}>DELETE</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={cancelConfirmText}
+              onChange={(e) => setCancelConfirmText(e.target.value)}
+              placeholder="DELETE"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 14,
+                border: `1px solid ${cancelConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}`,
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: "monospace",
+                letterSpacing: "1px",
+                boxSizing: "border-box",
+                transition: "border-color 0.15s ease",
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
+              onBlur={(e) => e.currentTarget.style.borderColor = cancelConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}
+            />
+          </div>
         </div>
       </Modal>
     </div>

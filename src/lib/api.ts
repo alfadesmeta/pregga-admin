@@ -766,6 +766,20 @@ export async function deleteWeeklyContent(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function uploadWeeklyContentImage(weekNumber: number, file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const filePath = `week-${weekNumber}/illustration.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('weekly-content')
+    .upload(filePath, file, { upsert: true });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from('weekly-content').getPublicUrl(filePath);
+  return data.publicUrl;
+}
+
 // ============================================
 // APP CONFIG APIs
 // ============================================

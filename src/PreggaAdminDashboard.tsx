@@ -104,9 +104,20 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
     const sectionMap: Record<string, Section> = {
       "Users": "Users",
       "Doulas": "Doulas",
+      "Conversations": "Conversations",
     };
     const mappedSection = sectionMap[targetSection] || (targetSection as Section);
     navigate({ section: mappedSection, subView: subViewId });
+  };
+
+  const handleNavigateToConversation = (conversationId: string) => {
+    setReturnTo({ section, subView });
+    navigate({ section: "Conversations", subView: conversationId });
+  };
+
+  const handleNavigateToDoula = (doulaId: string) => {
+    setReturnTo({ section, subView });
+    navigate({ section: "Doulas", subView: doulaId });
   };
 
   const renderView = () => {
@@ -128,6 +139,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             subView={subView}
             onNavigateToSubView={navigateToSubView}
             onGoBack={handleGoBackWithReturn}
+            onNavigateToConversation={handleNavigateToConversation}
           />
         );
       case "Doulas":
@@ -139,6 +151,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             onNavigateToSubView={navigateToSubView}
             onGoBack={goBack}
             onNavigateToUserWithReturn={handleNavigateToUserWithReturn}
+            onNavigateToConversation={handleNavigateToConversation}
           />
         );
       case "Conversations":
@@ -158,7 +171,9 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             isMobile={isMobile}
             subView={subView}
             onNavigateToSubView={navigateToSubView}
-            onGoBack={goBack}
+            onGoBack={handleGoBackWithReturn}
+            onNavigateToUser={handleNavigateToUserWithReturn}
+            onNavigateToDoula={handleNavigateToDoula}
           />
         );
       case "Weekly Content":

@@ -33,7 +33,6 @@ import {
   Check,
   XCircle,
   MessageCircle,
-  ToggleLeft,
   ToggleRight,
   Trash2,
   AlertTriangle,
@@ -47,6 +46,7 @@ interface DoulasViewProps {
   onNavigateToSubView?: (id: string) => void;
   onGoBack?: () => void;
   onNavigateToUserWithReturn?: (userId: string) => void;
+  onNavigateToConversation?: (conversationId: string) => void;
 }
 
 function formatDate(dateStr: string): string {
@@ -68,7 +68,7 @@ function formatTimeAgo(date: string): string {
   return formatDate(date);
 }
 
-export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUserWithReturn }: DoulasViewProps) {
+export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUserWithReturn, onNavigateToConversation }: DoulasViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<DoulaFilters>({});
 
@@ -95,6 +95,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
         isMobile={isMobile}
         onGoBack={onGoBack}
         onViewClient={onNavigateToUserWithReturn}
+        onNavigateToConversation={onNavigateToConversation}
         onRefresh={refetch}
       />
     );
@@ -358,16 +359,23 @@ function DoulaDetailView({
   isMobile,
   onGoBack,
   onViewClient,
+  onNavigateToConversation,
   onRefresh,
 }: {
   doulaId: string;
   isMobile: boolean;
   onGoBack?: () => void;
   onViewClient?: (clientId: string) => void;
+  onNavigateToConversation?: (conversationId: string) => void;
   onRefresh?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<"profile" | "availability" | "clients" | "conversations" | "verification" | "deactivate">("profile");
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [deactivateConfirmText, setDeactivateConfirmText] = useState("");
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
+  const [localAvailability, setLocalAvailability] = useState<boolean | null>(null);
 
   const { data: doula, isLoading, error, refetch } = useSupabaseQuery<DoulaWithProfile | null>(
     ['doula', doulaId],
@@ -386,14 +394,46 @@ function DoulaDetailView({
     { enabled: activeTab === 'conversations' }
   );
 
+  // Use local state if set, otherwise use server data
+  const isAvailable = localAvailability !== null ? localAvailability : (doula?.doula_profiles?.is_available ?? false);
+
   const handleToggleAvailability = async () => {
-    if (!doula) return;
+    if (!doula || isTogglingAvailability) return;
+    const newAvailability = !isAvailable;
+    
+    // Optimistically update local state immediately
+    setLocalAvailability(newAvailability);
+    setIsTogglingAvailability(true);
+    
     try {
-      await updateDoulaAvailability(doula.id, !doula.doula_profiles?.is_available);
-      toast.success(doula.doula_profiles?.is_available ? "Doula marked as unavailable" : "Doula marked as available");
+      await updateDoulaAvailability(doula.id, newAvailability);
+      toast.success(newAvailability ? "Doula marked as available" : "Doula marked as unavailable");
+      // Silently refresh data in background so list stays in sync
       refetch();
+      onRefresh?.();
+    } catch (err) {
+      // Revert on error
+      setLocalAvailability(!newAvailability);
+      toast.error(friendlyError(err));
+    } finally {
+      setIsTogglingAvailability(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!doula || deactivateConfirmText !== "DEACTIVATE") return;
+    setIsDeactivating(true);
+    try {
+      await rejectDoula(doula.id);
+      toast.success("Doula account deactivated");
+      setShowDeactivateModal(false);
+      setDeactivateConfirmText("");
+      refetch();
+      onRefresh?.();
     } catch (err) {
       toast.error(friendlyError(err));
+    } finally {
+      setIsDeactivating(false);
     }
   };
 
@@ -440,11 +480,9 @@ function DoulaDetailView({
     { id: "availability", label: "Availability", icon: <ToggleRight size={15} /> },
     { id: "clients", label: "Clients", icon: <Users size={15} /> },
     { id: "conversations", label: "Conversations", icon: <MessageCircle size={15} /> },
-    ...(!doula.doula_profiles?.is_available ? [{ id: "verification", label: "Verification", icon: <Award size={15} /> }] : []),
+    ...(!isAvailable ? [{ id: "verification", label: "Verification", icon: <Award size={15} /> }] : []),
     { id: "deactivate", label: "Deactivate", icon: <Trash2 size={15} /> },
   ];
-
-  const initials = (doula.display_name || "D").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -454,18 +492,18 @@ function DoulaDetailView({
         subtitle={doula.email || doula.phone || "No contact info"}
         avatarUrl={doula.avatar_url}
         avatarFallback={doula.display_name || "Doula"}
-        avatarGradient={doula.doula_profiles?.is_available 
+        avatarGradient={isAvailable 
           ? [PreggaColors.sage400, PreggaColors.sage500] 
           : [PreggaColors.warning400, PreggaColors.warning500]}
         onGoBack={() => onGoBack?.()}
         action={<Button icon={<Pencil size={15} />} onClick={() => setShowEditModal(true)} size="sm">Edit</Button>}
         stats={[
-          { label: "Verification", value: doula.doula_profiles?.is_available ? "Verified" : "Pending", highlight: doula.doula_profiles?.is_available },
-          { label: "Availability", value: doula.doula_profiles?.is_available ? "Available" : "Unavailable", highlight: doula.doula_profiles?.is_available },
+          { label: "Verification", value: isAvailable ? "Verified" : "Pending", highlight: isAvailable },
+          { label: "Availability", value: isAvailable ? "Available" : "Unavailable", highlight: isAvailable },
           { label: "Joined", value: formatDate(doula.created_at) },
         ]}
         isMobile={isMobile}
-        accentColor={doula.doula_profiles?.is_available 
+        accentColor={isAvailable 
           ? `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)` 
           : `linear-gradient(90deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`}
       />
@@ -507,26 +545,65 @@ function DoulaDetailView({
                 Control whether this doula appears as available for new clients
               </p>
             </div>
+            {/* Toggle Switch */}
             <button
               onClick={handleToggleAvailability}
+              disabled={isTogglingAvailability}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 20px",
-                borderRadius: 8,
+                position: "relative",
+                width: 56,
+                height: 30,
+                borderRadius: 15,
                 border: "none",
-                background: doula.doula_profiles?.is_available ? PreggaColors.success100 : PreggaColors.neutral100,
-                color: doula.doula_profiles?.is_available ? PreggaColors.success700 : PreggaColors.neutral700,
-                fontWeight: 500,
-                fontSize: 14,
-                cursor: "pointer",
+                outline: "none",
+                background: isAvailable ? PreggaColors.sage500 : PreggaColors.neutral300,
+                cursor: isTogglingAvailability ? "wait" : "pointer",
+                transition: "background 0.2s ease",
+                padding: 0,
+                opacity: isTogglingAvailability ? 0.7 : 1,
               }}
             >
-              {doula.doula_profiles?.is_available ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-              {doula.doula_profiles?.is_available ? "Available" : "Unavailable"}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  left: isAvailable ? 29 : 3,
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: PreggaColors.white,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                  transition: "left 0.2s ease",
+                }}
+              />
             </button>
           </div>
+          
+          {/* Status indicator */}
+          <div style={{ 
+            display: "inline-flex", 
+            alignItems: "center", 
+            gap: 8, 
+            padding: "8px 16px", 
+            borderRadius: 20,
+            background: isAvailable ? PreggaColors.sage50 : PreggaColors.neutral100,
+            marginBottom: 20,
+          }}>
+            <div style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: isAvailable ? PreggaColors.sage500 : PreggaColors.neutral400,
+            }} />
+            <span style={{ 
+              fontSize: 14, 
+              fontWeight: 500, 
+              color: isAvailable ? PreggaColors.sage700 : PreggaColors.neutral600
+            }}>
+              {isAvailable ? "Available" : "Unavailable"}
+            </span>
+          </div>
+
           <div style={{ padding: "16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
             <div style={{ fontSize: 13, color: PreggaColors.neutral500, marginBottom: 4 }}>Push Token</div>
             <div style={{ fontSize: 14, color: PreggaColors.neutral700, wordBreak: "break-all" }}>
@@ -540,7 +617,26 @@ function DoulaDetailView({
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {clients && clients.length > 0 ? (
             clients.map((client) => (
-              <Card key={client.id} padding="16px">
+              <div
+                key={client.id}
+                onClick={() => onViewClient?.(client.id)}
+                style={{
+                  background: PreggaColors.white,
+                  borderRadius: 12,
+                  padding: 16,
+                  border: `1px solid ${PreggaColors.secondary300}`,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = PreggaColors.neutral50;
+                  e.currentTarget.style.borderColor = PreggaColors.sage300;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = PreggaColors.white;
+                  e.currentTarget.style.borderColor = PreggaColors.secondary300;
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontWeight: 600, fontSize: 14 }}>
@@ -551,9 +647,9 @@ function DoulaDetailView({
                       <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{client.email || client.phone}</div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => onViewClient?.(client.id)}>View</Button>
+                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onViewClient?.(client.id); }}>View</Button>
                 </div>
-              </Card>
+              </div>
             ))
           ) : (
             <Card padding="40px">
@@ -570,10 +666,19 @@ function DoulaDetailView({
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {conversations && conversations.length > 0 ? (
             conversations.map((conv) => (
-              <Card key={conv.id} padding="16px">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Card 
+                key={conv.id} 
+                padding="16px"
+                style={{ cursor: "pointer", transition: "all 0.15s ease" }}
+                onClick={() => onNavigateToConversation?.(conv.id)}
+              >
+                <div 
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  onMouseEnter={(e) => (e.currentTarget.parentElement as HTMLElement).style.background = PreggaColors.neutral50}
+                  onMouseLeave={(e) => (e.currentTarget.parentElement as HTMLElement).style.background = PreggaColors.white}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600 }}>
                       <MessageCircle size={18} />
                     </div>
                     <div>
@@ -581,7 +686,7 @@ function DoulaDetailView({
                         Chat with {conv.pregnant_user?.display_name || "User"}
                       </div>
                       <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
-                        Started {formatTimeAgo(conv.created_at)}
+                        Started {conv.started_at ? formatTimeAgo(conv.started_at) : "Unknown"}
                       </div>
                     </div>
                   </div>
@@ -600,7 +705,7 @@ function DoulaDetailView({
         </div>
       )}
 
-      {activeTab === "verification" && !doula.doula_profiles?.is_available && (
+      {activeTab === "verification" && !isAvailable && (
         <Card padding="24px">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: PreggaColors.warning50, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -628,26 +733,113 @@ function DoulaDetailView({
 
       {activeTab === "deactivate" && (
         <Card padding="24px">
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <AlertTriangle size={24} color={PreggaColors.error500} />
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: 20, background: PreggaColors.error50, borderRadius: 12, border: `1px solid ${PreggaColors.error100}` }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: PreggaColors.white, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <AlertTriangle size={22} color={PreggaColors.error500} />
             </div>
             <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 6px" }}>
                 Deactivate Doula Account
               </h3>
-              <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
+              <p style={{ fontSize: 13, color: PreggaColors.neutral600, margin: "0 0 16px", lineHeight: 1.5 }}>
                 Deactivating this doula will remove their verification status and mark them as unavailable.
-                They will no longer appear in search results for users.
+                They will no longer appear in search results for users. This action can be reversed by re-verifying the doula.
               </p>
-              <Button variant="outline" onClick={handleReject} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
-                <Trash2 size={16} />
+              <button
+                onClick={() => setShowDeactivateModal(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 8,
+                  border: `1px solid ${PreggaColors.error400}`,
+                  color: PreggaColors.error600,
+                  background: PreggaColors.white,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = PreggaColors.error50;
+                  e.currentTarget.style.borderColor = PreggaColors.error500;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = PreggaColors.white;
+                  e.currentTarget.style.borderColor = PreggaColors.error400;
+                }}
+              >
+                <Trash2 size={14} />
                 Deactivate Account
-              </Button>
+              </button>
             </div>
           </div>
         </Card>
       )}
+
+      {/* Deactivate Modal with DELETE verification */}
+      <Modal
+        open={showDeactivateModal}
+        onClose={() => { setShowDeactivateModal(false); setDeactivateConfirmText(""); }}
+        title=""
+        width={420}
+        footer={
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <Button variant="outline" onClick={() => { setShowDeactivateModal(false); setDeactivateConfirmText(""); }}>Cancel</Button>
+            <Button
+              onClick={handleDeactivate}
+              loading={isDeactivating}
+              disabled={deactivateConfirmText !== "DEACTIVATE"}
+              style={{
+                background: PreggaColors.error500,
+                opacity: deactivateConfirmText === "DEACTIVATE" ? 1 : 0.5,
+                cursor: deactivateConfirmText === "DEACTIVATE" ? "pointer" : "not-allowed",
+              }}
+            >
+              Deactivate Account
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ textAlign: "center", padding: "8px 0" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <AlertTriangle size={28} color={PreggaColors.error500} />
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>
+            Deactivate Doula Account?
+          </h3>
+          <p style={{ fontSize: 14, color: PreggaColors.neutral500, lineHeight: 1.6, margin: "0 0 20px" }}>
+            Are you sure you want to deactivate <strong style={{ color: PreggaColors.neutral700 }}>{doula.display_name || "this doula"}</strong>?
+            They will be marked as unavailable and removed from search results.
+          </p>
+          <div style={{ textAlign: "left" }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
+              Type <span style={{ fontFamily: "monospace", background: PreggaColors.neutral100, padding: "2px 6px", borderRadius: 4, color: PreggaColors.error600 }}>DEACTIVATE</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={deactivateConfirmText}
+              onChange={(e) => setDeactivateConfirmText(e.target.value.toUpperCase())}
+              placeholder="DEACTIVATE"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 14,
+                border: `1px solid ${deactivateConfirmText === "DEACTIVATE" ? PreggaColors.error400 : PreggaColors.neutral200}`,
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: "monospace",
+                letterSpacing: "1px",
+                boxSizing: "border-box",
+                transition: "border-color 0.15s ease",
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
+              onBlur={(e) => e.currentTarget.style.borderColor = deactivateConfirmText === "DEACTIVATE" ? PreggaColors.error400 : PreggaColors.neutral200}
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Edit Modal */}
       <EditDoulaModal

@@ -9,6 +9,7 @@ import { Badge, StatusBadge } from "../../ui/Badge";
 import { DataTable } from "../../ui/DataTable";
 import { Select } from "../../ui/Select";
 import { Modal } from "../../ui/Modal";
+import { ShimmerKPICard } from "../../ui/Shimmer";
 import { fetchSubscriptions, fetchSubscriptionById, extendSubscription, cancelSubscription, type SubscriptionFilters } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
 import type { Subscription, Profile, SubscriptionPlan, SubscriptionStatus } from "../../../types/database";
@@ -100,12 +101,22 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
-        <StatCard label="Total" value={count} icon={<CreditCard size={18} />} color={PreggaColors.sage500} delay={0} />
-        <StatCard label="Active" value={activeCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={100} />
-        <StatCard label="Trial" value={trialCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={200} />
-        <StatCard label="Cancelled" value={cancelledCount} icon={<XCircle size={18} />} color={PreggaColors.error500} delay={300} />
-      </div>
+      {/* Stats Row with Shimmer Loading */}
+      {isLoading ? (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+          <ShimmerKPICard delay={0} />
+          <ShimmerKPICard delay={80} />
+          <ShimmerKPICard delay={160} />
+          <ShimmerKPICard delay={240} />
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+          <StatCard label="Total" value={count} icon={<CreditCard size={18} />} color={PreggaColors.sage500} delay={0} />
+          <StatCard label="Active" value={activeCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={100} />
+          <StatCard label="Trial" value={trialCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={200} />
+          <StatCard label="Cancelled" value={cancelledCount} icon={<XCircle size={18} />} color={PreggaColors.error500} delay={300} />
+        </div>
+      )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ width: isMobile ? "100%" : 280 }}>
@@ -167,6 +178,7 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [extendDate, setExtendDate] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cancelConfirmText, setCancelConfirmText] = useState("");
 
   const { data: subscription, isLoading, error, refetch } = useSupabaseQuery<(Subscription & { user: Profile }) | null>(
     ['subscription', subscriptionId],
@@ -301,8 +313,60 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
         <Input label="New End Date" type="date" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} required />
       </Modal>
 
-      <Modal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="" width={400} footer={<div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}><Button variant="outline" onClick={() => setShowCancelModal(false)}>Keep Active</Button><Button onClick={handleCancel} loading={isProcessing} style={{ background: PreggaColors.error500 }}>Cancel Subscription</Button></div>}>
-        <div style={{ textAlign: "center" }}><div style={{ width: 64, height: 64, borderRadius: "50%", background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><XCircle size={28} color={PreggaColors.error500} /></div><h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px", color: PreggaColors.neutral900 }}>Cancel subscription?</h3><p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: 0 }}>This will immediately cancel the user's subscription.</p></div>
+      <Modal 
+        open={showCancelModal} 
+        onClose={() => { setShowCancelModal(false); setCancelConfirmText(""); }} 
+        title="" 
+        width={420} 
+        footer={
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <Button variant="outline" onClick={() => { setShowCancelModal(false); setCancelConfirmText(""); }}>Keep Active</Button>
+            <Button 
+              onClick={handleCancel} 
+              loading={isProcessing} 
+              disabled={cancelConfirmText !== "DELETE"}
+              style={{ 
+                background: cancelConfirmText === "DELETE" ? PreggaColors.error500 : PreggaColors.neutral300,
+                cursor: cancelConfirmText === "DELETE" ? "pointer" : "not-allowed",
+              }}
+            >
+              Cancel Subscription
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <XCircle size={28} color={PreggaColors.error500} />
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px", color: PreggaColors.neutral900 }}>Cancel subscription?</h3>
+          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 20px", lineHeight: 1.5 }}>This will immediately cancel the user's subscription.</p>
+          <div style={{ textAlign: "left" }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
+              Type <span style={{ fontFamily: "monospace", background: PreggaColors.neutral100, padding: "2px 6px", borderRadius: 4, color: PreggaColors.error600 }}>DELETE</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={cancelConfirmText}
+              onChange={(e) => setCancelConfirmText(e.target.value)}
+              placeholder="DELETE"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 14,
+                border: `1px solid ${cancelConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}`,
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: "monospace",
+                letterSpacing: "1px",
+                boxSizing: "border-box",
+                transition: "border-color 0.15s ease",
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
+              onBlur={(e) => e.currentTarget.style.borderColor = cancelConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   );

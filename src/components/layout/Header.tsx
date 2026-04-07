@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import toast from "react-hot-toast";
 import { PreggaColors } from "../../theme/colors";
 import { Search, Menu, Calendar, RefreshCw } from "lucide-react";
+import { invalidateCache } from "../../hooks";
 
 interface HeaderProps {
   title: string;
@@ -36,9 +37,17 @@ export function Header({
   const handleRefresh = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
+    
+    // Clear all cached data to force fresh fetch
+    invalidateCache();
+    
+    // Trigger the refresh callback (changes refreshKey to remount views)
     onRefresh?.();
-    toast.success("Data refreshed");
-    setTimeout(() => setIsRefreshing(false), 1000);
+    
+    setTimeout(() => {
+      setIsRefreshing(false);
+      toast.success("Page refreshed");
+    }, 800);
   };
 
   return (
