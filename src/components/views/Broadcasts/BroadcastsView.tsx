@@ -22,7 +22,6 @@ import {
   Search,
   Radio,
   Clock,
-  ArrowLeft,
   X,
   AlertCircle,
   XCircle,
@@ -30,7 +29,10 @@ import {
   User,
   Users,
   Check,
+  MessageSquare,
+  Settings,
 } from "lucide-react";
+import { DetailHeader, TabSelector, Tab } from "../../ui";
 
 interface BroadcastsViewProps {
   isMobile: boolean;
@@ -325,6 +327,7 @@ function BroadcastDetailView({
   onRefresh: () => void;
   isMobile: boolean;
 }) {
+  const [activeTab, setActiveTab] = useState<"user" | "message" | "doulas" | "actions">("user");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -377,131 +380,169 @@ function BroadcastDetailView({
     );
   }
 
+  const getStatusGradient = () => {
+    if (broadcast.status === 'accepted') return [PreggaColors.sage400, PreggaColors.sage500];
+    if (broadcast.status === 'pending') return [PreggaColors.warning400, PreggaColors.warning500];
+    return [PreggaColors.neutral300, PreggaColors.neutral400];
+  };
+
+  const tabs: Tab[] = [
+    { id: "user", label: "Requester", icon: <User size={15} /> },
+    { id: "message", label: "Message", icon: <MessageSquare size={15} /> },
+    { id: "doulas", label: "Doulas", icon: <Users size={15} /> },
+    ...(broadcast.status === 'pending' ? [{ id: "actions" as const, label: "Actions", icon: <Settings size={15} /> }] : []),
+  ];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onGoBack} style={{ background: "none", border: "none", cursor: "pointer", color: PreggaColors.neutral600, padding: 0, display: "flex" }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>Broadcast Request</h1>
-          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "4px 0 0" }}>View and manage this broadcast</p>
-        </div>
-      </div>
+      <DetailHeader
+        title="Broadcast Request"
+        subtitle="View and manage this broadcast"
+        avatarFallback="Broadcast"
+        avatarIcon={<Radio size={24} />}
+        avatarGradient={getStatusGradient() as [string, string]}
+        onGoBack={onGoBack}
+        stats={[
+          { label: "Status", value: broadcast.status.replace('_', ' '), highlight: broadcast.status === 'accepted' },
+          { label: "Notified", value: `${broadcast.notified_doulas?.length || 0} doulas` },
+          { label: "Rejections", value: String(broadcast.rejections?.length || 0) },
+          { label: "Created", value: formatTimeAgo(broadcast.created_at) },
+        ]}
+        isMobile={isMobile}
+        accentColor={`linear-gradient(90deg, ${getStatusGradient()[0]} 0%, ${getStatusGradient()[1]} 100%)`}
+      />
 
-      {/* Status Banner */}
-      <div
-        style={{
-          background: broadcast.status === 'accepted'
-            ? `linear-gradient(135deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)`
-            : broadcast.status === 'pending'
-            ? `linear-gradient(135deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`
-            : `linear-gradient(135deg, ${PreggaColors.neutral400} 0%, ${PreggaColors.neutral300} 100%)`,
-          borderRadius: 16,
-          padding: "24px 32px",
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr",
-          gap: 24,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Status</div>
-          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white, textTransform: "capitalize" }}>{broadcast.status.replace('_', ' ')}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Notified</div>
-          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white }}>{broadcast.notified_doulas?.length || 0} doulas</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Rejections</div>
-          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white }}>{broadcast.rejections?.length || 0}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Created</div>
-          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white }}>{formatTimeAgo(broadcast.created_at)}</div>
-        </div>
-      </div>
+      {/* Tabs */}
+      <TabSelector
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        isMobile={isMobile}
+      />
 
-      {/* Requesting User */}
-      <Card padding="20px">
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
-          <User size={18} />
-          Requesting User
-        </h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
-            {(broadcast.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+      {/* Tab Content */}
+      {activeTab === "user" && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, display: "flex", alignItems: "center", gap: 8 }}>
+              <User size={18} />
+              Requesting User
+            </h3>
           </div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.user?.display_name || "Unknown User"}</div>
-            <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.user?.email || broadcast.user?.phone || "No contact"}</div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Initial Message */}
-      <Card padding="20px">
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 12px" }}>Initial Message</h3>
-        <div style={{ padding: 16, background: PreggaColors.cream50, borderRadius: 8, fontSize: 14, color: PreggaColors.neutral700, lineHeight: 1.6 }}>
-          {broadcast.initial_message || "No message provided"}
-        </div>
-      </Card>
-
-      {/* Accepted Doula */}
-      {broadcast.accepted_doula && (
-        <Card padding="20px">
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
-            <Check size={18} color={PreggaColors.success500} />
-            Accepted Doula
-          </h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600 }}>
-              {(broadcast.accepted_doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
-            </div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.accepted_doula?.display_name || "Unknown Doula"}</div>
-              <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.accepted_doula?.email || broadcast.accepted_doula?.phone || "No contact"}</div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Rejections */}
-      {broadcast.rejections && broadcast.rejections.length > 0 && (
-        <Card padding="20px">
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
-            <XCircle size={18} color={PreggaColors.error500} />
-            Rejections ({broadcast.rejections.length})
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {broadcast.rejections.map((rejection) => (
-              <div key={rejection.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 12, background: PreggaColors.neutral50, borderRadius: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.rose100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.rose600, fontSize: 12, fontWeight: 600 }}>
-                    {(rejection.doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
-                  </div>
-                  <span style={{ fontWeight: 500 }}>{rejection.doula?.display_name || "Unknown Doula"}</span>
-                </div>
-                <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.created_at)}</span>
+          <div style={{ padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
+                {(broadcast.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
-            ))}
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.user?.display_name || "Unknown User"}</div>
+                <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.user?.email || broadcast.user?.phone || "No contact"}</div>
+              </div>
+            </div>
           </div>
         </Card>
       )}
 
-      {/* Admin Actions */}
-      {broadcast.status === 'pending' && (
-        <Card padding="20px">
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px" }}>Admin Actions</h3>
-          <div style={{ display: "flex", gap: 12 }}>
-            <Button onClick={handleRenotify} loading={isProcessing} icon={<Bell size={16} />}>
-              Re-notify Doulas
-            </Button>
-            <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
-              <XCircle size={16} />
-              Cancel Broadcast
-            </Button>
+      {activeTab === "message" && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Initial Message
+            </h3>
+          </div>
+          <div style={{ padding: 24 }}>
+            <div style={{ padding: 16, background: PreggaColors.cream50, borderRadius: 8, fontSize: 14, color: PreggaColors.neutral700, lineHeight: 1.6 }}>
+              {broadcast.initial_message || "No message provided"}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "doulas" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Accepted Doula */}
+          {broadcast.accepted_doula && (
+            <Card padding="0">
+              <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Check size={18} color={PreggaColors.success500} />
+                  Accepted Doula
+                </h3>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600 }}>
+                    {(broadcast.accepted_doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.accepted_doula?.display_name || "Unknown Doula"}</div>
+                    <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.accepted_doula?.email || broadcast.accepted_doula?.phone || "No contact"}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Rejections */}
+          {broadcast.rejections && broadcast.rejections.length > 0 && (
+            <Card padding="0">
+              <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, display: "flex", alignItems: "center", gap: 8 }}>
+                  <XCircle size={18} color={PreggaColors.error500} />
+                  Rejections ({broadcast.rejections.length})
+                </h3>
+              </div>
+              <div style={{ padding: 16 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {broadcast.rejections.map((rejection) => (
+                    <div key={rejection.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 12, background: PreggaColors.neutral50, borderRadius: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.rose100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.rose600, fontSize: 12, fontWeight: 600 }}>
+                          {(rejection.doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <span style={{ fontWeight: 500 }}>{rejection.doula?.display_name || "Unknown Doula"}</span>
+                      </div>
+                      <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.created_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Empty state for doulas tab */}
+          {!broadcast.accepted_doula && (!broadcast.rejections || broadcast.rejections.length === 0) && (
+            <Card padding="40px">
+              <div style={{ textAlign: "center", color: PreggaColors.neutral400 }}>
+                <Users size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
+                <div>No doula responses yet</div>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === "actions" && broadcast.status === 'pending' && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Admin Actions
+            </h3>
+          </div>
+          <div style={{ padding: 24 }}>
+            <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
+              Manage this broadcast request by re-notifying doulas or cancelling the broadcast.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Button onClick={handleRenotify} loading={isProcessing} icon={<Bell size={16} />}>
+                Re-notify Doulas
+              </Button>
+              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+                <XCircle size={16} />
+                Cancel Broadcast
+              </Button>
+            </div>
           </div>
         </Card>
       )}

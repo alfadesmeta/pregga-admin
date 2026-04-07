@@ -8,7 +8,6 @@ export type Section =
   | "Broadcasts"
   | "Weekly Content"
   | "Subscriptions"
-  | "App Config"
   | "Settings";
 
 export interface NavigationState {
@@ -26,7 +25,6 @@ const sectionToHash: Record<Section, string> = {
   "Broadcasts": "broadcasts",
   "Weekly Content": "content",
   "Subscriptions": "subscriptions",
-  "App Config": "config",
   "Settings": "settings",
 };
 
@@ -38,7 +36,6 @@ const hashToSection: Record<string, Section> = {
   "broadcasts": "Broadcasts",
   "content": "Weekly Content",
   "subscriptions": "Subscriptions",
-  "config": "App Config",
   "settings": "Settings",
 };
 

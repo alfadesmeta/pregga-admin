@@ -4,8 +4,27 @@ import { LoginPage } from "./components/auth";
 import { PreggaAdminDashboard } from "./PreggaAdminDashboard";
 import { supabase } from "./lib/supabase";
 import { friendlyError } from "./lib/errors";
+import { PreggaColors } from "./theme/colors";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Profile } from "./types/database";
+
+const toasterConfig = {
+  position: "bottom-right" as const,
+  toastOptions: {
+    duration: 3000,
+    style: {
+      background: "#1a2e1a",
+      color: "#fff",
+      fontSize: 14,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      borderRadius: 10,
+      padding: "12px 16px",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+    },
+    success: { iconTheme: { primary: PreggaColors.sage500, secondary: "#fff" } },
+    error: { iconTheme: { primary: "#E55B50", secondary: "#fff" } },
+  },
+};
 
 interface AuthState {
   user: User | null;
@@ -112,7 +131,7 @@ function App() {
   if (authState.isLoading) {
     return (
       <div style={{ height: "100%", width: "100%", background: "#F8F6F3" }}>
-        <Toaster position="top-right" />
+        <Toaster {...toasterConfig} />
         <div
           style={{
             height: "100%",
@@ -139,7 +158,7 @@ function App() {
   if (!authState.user || !authState.profile) {
     return (
       <div style={{ height: "100%", width: "100%" }}>
-        <Toaster position="top-right" />
+        <Toaster {...toasterConfig} />
         <LoginPage onLogin={handleLogin} />
       </div>
     );
@@ -147,7 +166,7 @@ function App() {
 
   return (
     <div style={{ height: "100%", width: "100%" }}>
-      <Toaster position="top-right" />
+      <Toaster {...toasterConfig} />
       <PreggaAdminDashboard 
         onSignOut={handleSignOut} 
         user={authState.user}

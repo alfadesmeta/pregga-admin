@@ -159,6 +159,38 @@ export async function fetchWeeklyRegistrations(): Promise<{ week: string; count:
     .sort((a, b) => a.week.localeCompare(b.week));
 }
 
+export async function fetchDailyRegistrations(days: number = 30): Promise<{ date: string; count: number }[]> {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('created_at')
+    .eq('user_role', 'pregnant')
+    .gte('created_at', startDate.toISOString());
+
+  if (error) throw error;
+
+  const dayCounts: Record<string, number> = {};
+  
+  for (let i = 0; i <= days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dayCounts[d.toISOString().split('T')[0]] = 0;
+  }
+
+  data?.forEach((profile) => {
+    const dateKey = new Date(profile.created_at).toISOString().split('T')[0];
+    if (dayCounts[dateKey] !== undefined) {
+      dayCounts[dateKey]++;
+    }
+  });
+
+  return Object.entries(dayCounts)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ============================================
 // USER APIs
 // ============================================
@@ -481,6 +513,28 @@ export async function reactivateConversation(id: string): Promise<void> {
     .eq('id', id);
 
   if (error) throw error;
+}
+
+export async function fetchConversationMessages(
+  conversationId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<PaginatedResponse<{ id: string; conversation_id: string; sender_id: string; content: string; created_at: string; read_at: string | null; sender: Profile }>> {
+  const { data, error, count } = await supabase
+    .from('messages')
+    .select(`
+      *,
+      sender:profiles!messages_sender_id_fkey (*)
+    `, { count: 'exact' })
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return { 
+    data: (data || []).reverse(), 
+    count: count || 0 
+  };
 }
 
 // ============================================

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useCountUp, useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
 import { PreggaColors } from "../../../theme/colors";
@@ -12,31 +12,49 @@ import { Modal } from "../../ui/Modal";
 import {
   fetchConversations,
   fetchConversationById,
+  fetchConversationMessages,
   endConversation,
   reactivateConversation,
   type ConversationFilters,
 } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
-import type { ConversationWithUsers } from "../../../types/database";
+import type { ConversationWithUsers, Profile } from "../../../types/database";
 import {
   Search,
   MessageCircle,
   Clock,
   Archive,
-  ArrowLeft,
   User,
   Heart,
   X,
   AlertCircle,
   Play,
   Pause,
+  ChevronDown,
+  Loader2,
+  Users,
+  Settings,
 } from "lucide-react";
+import { DetailHeader, TabSelector, Tab } from "../../ui";
 
 interface ChatViewProps {
   isMobile: boolean;
   subView?: string;
   onNavigateToSubView?: (subView: string) => void;
   onGoBack?: () => void;
+}
+
+type ChatSubView = 
+  | { type: 'detail'; conversationId: string }
+  | { type: 'messages'; conversationId: string }
+  | null;
+
+function parseSubView(subView?: string): ChatSubView {
+  if (!subView) return null;
+  if (subView.startsWith('messages-')) {
+    return { type: 'messages', conversationId: subView.replace('messages-', '') };
+  }
+  return { type: 'detail', conversationId: subView };
 }
 
 function formatDate(dateStr: string): string {
@@ -100,13 +118,32 @@ export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: C
     }
   };
 
-  if (subView) {
+  const handleViewMessages = (conversationId: string) => {
+    if (onNavigateToSubView) {
+      onNavigateToSubView(`messages-${conversationId}`);
+    }
+  };
+
+  const parsed = parseSubView(subView);
+  
+  if (parsed?.type === 'messages') {
+    return (
+      <FullChatView
+        conversationId={parsed.conversationId}
+        onGoBack={handleGoBack}
+        isMobile={isMobile}
+      />
+    );
+  }
+
+  if (parsed?.type === 'detail') {
     return (
       <ConversationDetailView
-        conversationId={subView}
+        conversationId={parsed.conversationId}
         onGoBack={handleGoBack}
         onRefresh={refetch}
         isMobile={isMobile}
+        onViewMessages={handleViewMessages}
       />
     );
   }
@@ -358,12 +395,15 @@ function ConversationDetailView({
   onGoBack,
   onRefresh,
   isMobile,
+  onViewMessages,
 }: {
   conversationId: string;
   onGoBack: () => void;
   onRefresh: () => void;
   isMobile: boolean;
+  onViewMessages: (conversationId: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"participants" | "channel" | "messages" | "actions">("participants");
   const [showActionModal, setShowActionModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -407,141 +447,164 @@ function ConversationDetailView({
     );
   }
 
+  const tabs: Tab[] = [
+    { id: "participants", label: "Participants", icon: <Users size={15} /> },
+    { id: "channel", label: "Channel Info", icon: <Settings size={15} /> },
+    { id: "messages", label: "Messages", icon: <MessageCircle size={15} /> },
+    { id: "actions", label: "Admin Actions", icon: <Play size={15} /> },
+  ];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onGoBack} style={{ background: "none", border: "none", cursor: "pointer", color: PreggaColors.neutral600, padding: 0, display: "flex" }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>Conversation Details</h1>
-          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "4px 0 0" }}>View and manage this chat session</p>
-        </div>
-      </div>
+      <DetailHeader
+        title="Conversation Details"
+        subtitle="View and manage this chat session"
+        avatarFallback="Chat"
+        avatarIcon={<MessageCircle size={24} />}
+        avatarGradient={conversation.is_active 
+          ? [PreggaColors.sage400, PreggaColors.sage500] 
+          : [PreggaColors.neutral300, PreggaColors.neutral400]}
+        onGoBack={onGoBack}
+        stats={[
+          { label: "Status", value: conversation.is_active ? "Active" : "Ended", highlight: conversation.is_active },
+          { label: "Started", value: formatDate(conversation.created_at) },
+          { label: conversation.ended_at ? "Ended" : "Channel ID", value: conversation.ended_at ? formatDate(conversation.ended_at) : conversation.stream_channel_id?.slice(0, 8) || "N/A" },
+        ]}
+        isMobile={isMobile}
+        accentColor={conversation.is_active 
+          ? `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)`
+          : `linear-gradient(90deg, ${PreggaColors.neutral400} 0%, ${PreggaColors.neutral300} 100%)`}
+      />
 
-      {/* Status Banner */}
-      <div
-        style={{
-          background: conversation.is_active
-            ? `linear-gradient(135deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)`
-            : `linear-gradient(135deg, ${PreggaColors.neutral400} 0%, ${PreggaColors.neutral300} 100%)`,
-          borderRadius: 16,
-          padding: "24px 32px",
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
-          gap: 24,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Status</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.white }}>
-            {conversation.is_active ? "Active" : "Ended"}
-          </div>
-        </div>
-        <div style={{ textAlign: isMobile ? "left" : "center" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Started</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.white }}>
-            {formatDate(conversation.created_at)}
-          </div>
-        </div>
-        <div style={{ textAlign: isMobile ? "left" : "right" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>
-            {conversation.ended_at ? "Ended" : "Stream Channel"}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.white }}>
-            {conversation.ended_at ? formatDate(conversation.ended_at) : conversation.stream_channel_id?.slice(0, 8) || "N/A"}
-          </div>
-        </div>
-      </div>
+      {/* Tabs */}
+      <TabSelector
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        isMobile={isMobile}
+      />
 
-      {/* Participants */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-        <Card padding="20px">
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600, overflow: "hidden" }}>
-              {conversation.pregnant_user?.avatar_url ? (
-                <img src={conversation.pregnant_user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                <User size={24} />
-              )}
-            </div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>
-                  {conversation.pregnant_user?.display_name || "Unknown User"}
-                </span>
-                <Badge variant="sage">User</Badge>
+      {/* Tab Content */}
+      {activeTab === "participants" && (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+          <Card padding="20px">
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600, overflow: "hidden" }}>
+                {conversation.pregnant_user?.avatar_url ? (
+                  <img src={conversation.pregnant_user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <User size={24} />
+                )}
               </div>
-              <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
-                {conversation.pregnant_user?.email || conversation.pregnant_user?.phone || "No contact"}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>
+                    {conversation.pregnant_user?.display_name || "Unknown User"}
+                  </span>
+                  <Badge variant="sage">User</Badge>
+                </div>
+                <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
+                  {conversation.pregnant_user?.email || conversation.pregnant_user?.phone || "No contact"}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card padding="20px">
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.terracotta100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.terracotta600, fontSize: 18, fontWeight: 600, overflow: "hidden" }}>
+                {conversation.doula?.avatar_url ? (
+                  <img src={conversation.doula.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <Heart size={24} />
+                )}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>
+                    {conversation.doula?.display_name || "Unknown Doula"}
+                  </span>
+                  <Badge variant="rose">Doula</Badge>
+                </div>
+                <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
+                  {conversation.doula?.email || conversation.doula?.phone || "No contact"}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "channel" && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Stream Chat Channel
+            </h3>
+          </div>
+          <div style={{ padding: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+              <div style={{ padding: "12px 16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Channel ID</div>
+                <div style={{ fontSize: 14, fontWeight: 500, wordBreak: "break-all" }}>{conversation.stream_channel_id || "Not set"}</div>
+              </div>
+              <div style={{ padding: "12px 16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Channel Status</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{conversation.is_active ? "Unfrozen (Active)" : "Frozen (Ended)"}</div>
               </div>
             </div>
           </div>
         </Card>
+      )}
 
-        <Card padding="20px">
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.terracotta100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.terracotta600, fontSize: 18, fontWeight: 600, overflow: "hidden" }}>
-              {conversation.doula?.avatar_url ? (
-                <img src={conversation.doula.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                <Heart size={24} />
-              )}
-            </div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>
-                  {conversation.doula?.display_name || "Unknown Doula"}
-                </span>
-                <Badge variant="rose">Doula</Badge>
-              </div>
-              <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>
-                {conversation.doula?.email || conversation.doula?.phone || "No contact"}
-              </div>
-            </div>
+      {activeTab === "messages" && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Chat Messages
+            </h3>
+          </div>
+          <div style={{ padding: 24 }}>
+            <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
+              View the full message history for this conversation in a dedicated read-only chat interface.
+            </p>
+            <Button
+              onClick={() => onViewMessages(conversationId)}
+              icon={<MessageCircle size={16} />}
+            >
+              View Messages
+            </Button>
           </div>
         </Card>
-      </div>
+      )}
 
-      {/* Channel Info */}
-      <Card padding="20px">
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px" }}>
-          Stream Chat Channel
-        </h3>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-          <div style={{ padding: "12px 16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Channel ID</div>
-            <div style={{ fontSize: 14, fontWeight: 500, wordBreak: "break-all" }}>{conversation.stream_channel_id || "Not set"}</div>
+      {activeTab === "actions" && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Admin Actions
+            </h3>
           </div>
-          <div style={{ padding: "12px 16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Channel Status</div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{conversation.is_active ? "Unfrozen (Active)" : "Frozen (Ended)"}</div>
+          <div style={{ padding: 24 }}>
+            <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
+              {conversation.is_active
+                ? "End this conversation to freeze the Stream Chat channel. Users will no longer be able to send messages."
+                : "Reactivate this conversation to unfreeze the Stream Chat channel. Users will be able to resume messaging."
+              }
+            </p>
+            <Button
+              onClick={() => setShowActionModal(true)}
+              icon={conversation.is_active ? <Pause size={16} /> : <Play size={16} />}
+              style={{
+                background: conversation.is_active ? PreggaColors.warning500 : PreggaColors.success500,
+              }}
+            >
+              {conversation.is_active ? "End Conversation" : "Reactivate Conversation"}
+            </Button>
           </div>
-        </div>
-      </Card>
-
-      {/* Admin Actions */}
-      <Card padding="20px">
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px" }}>
-          Admin Actions
-        </h3>
-        <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
-          {conversation.is_active
-            ? "End this conversation to freeze the Stream Chat channel. Users will no longer be able to send messages."
-            : "Reactivate this conversation to unfreeze the Stream Chat channel. Users will be able to resume messaging."
-          }
-        </p>
-        <Button
-          onClick={() => setShowActionModal(true)}
-          icon={conversation.is_active ? <Pause size={16} /> : <Play size={16} />}
-          style={{
-            background: conversation.is_active ? PreggaColors.warning500 : PreggaColors.success500,
-          }}
-        >
-          {conversation.is_active ? "End Conversation" : "Reactivate Conversation"}
-        </Button>
-      </Card>
+        </Card>
+      )}
 
       {/* Confirmation Modal */}
       <Modal
@@ -577,6 +640,650 @@ function ConversationDetailView({
           </p>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+interface MessageData {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
+  sender: Profile;
+}
+
+function MessageTranscript({
+  conversationId,
+  pregnantUser,
+  doula,
+  isMobile,
+}: {
+  conversationId: string;
+  pregnantUser: Profile;
+  doula: Profile;
+  isMobile: boolean;
+}) {
+  const [messages, setMessages] = useState<MessageData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const LIMIT = 30;
+
+  const loadMessages = async (newOffset: number = 0, append: boolean = false) => {
+    if (append) setIsLoadingMore(true);
+    else setIsLoading(true);
+
+    try {
+      const result = await fetchConversationMessages(conversationId, LIMIT, newOffset);
+      if (append) {
+        setMessages((prev) => [...result.data, ...prev]);
+      } else {
+        setMessages(result.data as MessageData[]);
+      }
+      setTotalCount(result.count);
+      setHasMore(newOffset + LIMIT < result.count);
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMessages(0);
+  }, [conversationId]);
+
+  const loadMore = () => {
+    const newOffset = offset + LIMIT;
+    setOffset(newOffset);
+    loadMessages(newOffset, true);
+  };
+
+  const formatMessageTime = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
+  const formatMessageDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const groupMessagesByDate = (msgs: MessageData[]) => {
+    const groups: { date: string; messages: MessageData[] }[] = [];
+    let currentDate = "";
+
+    msgs.forEach((msg) => {
+      const msgDate = formatMessageDate(msg.created_at);
+      if (msgDate !== currentDate) {
+        currentDate = msgDate;
+        groups.push({ date: currentDate, messages: [msg] });
+      } else {
+        groups[groups.length - 1].messages.push(msg);
+      }
+    });
+
+    return groups;
+  };
+
+  const messageGroups = groupMessagesByDate(messages);
+
+  return (
+    <Card padding="0">
+      <div style={{ padding: "16px 20px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>
+            Message Transcript
+          </h3>
+          <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
+            {totalCount} message{totalCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div style={{ padding: 40, textAlign: "center" }}>
+          <Loader2 size={24} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
+          <p style={{ marginTop: 12, color: PreggaColors.neutral500, fontSize: 14 }}>Loading messages...</p>
+        </div>
+      ) : messages.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center" }}>
+          <MessageCircle size={32} color={PreggaColors.neutral300} style={{ marginBottom: 12 }} />
+          <p style={{ color: PreggaColors.neutral500, fontSize: 14, margin: 0 }}>No messages in this conversation</p>
+        </div>
+      ) : (
+        <div style={{ maxHeight: isMobile ? 400 : 500, overflowY: "auto" }}>
+          {hasMore && (
+            <div style={{ padding: "12px 20px", textAlign: "center", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: PreggaColors.sage600,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: isLoadingMore ? "default" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  margin: "0 auto",
+                }}
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} />
+                    Load older messages
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+            {messageGroups.map((group, groupIdx) => (
+              <div key={groupIdx}>
+                <div style={{ textAlign: "center", marginBottom: 12 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      color: PreggaColors.neutral500,
+                      background: PreggaColors.neutral50,
+                      padding: "4px 12px",
+                      borderRadius: 12,
+                    }}
+                  >
+                    {group.date}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {group.messages.map((msg) => {
+                    const isUser = msg.sender_id === pregnantUser?.id;
+                    const senderName = isUser ? pregnantUser?.display_name : doula?.display_name;
+
+                    return (
+                      <div
+                        key={msg.id}
+                        style={{
+                          display: "flex",
+                          flexDirection: isUser ? "row" : "row-reverse",
+                          gap: 10,
+                          alignItems: "flex-end",
+                        }}
+                      >
+                        <div
+                          style={{
+                            maxWidth: "75%",
+                            background: isUser ? PreggaColors.sage50 : PreggaColors.terracotta50,
+                            borderRadius: isUser ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
+                            padding: "10px 14px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: isUser ? PreggaColors.sage700 : PreggaColors.terracotta700,
+                              marginBottom: 4,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            {isUser ? <User size={12} /> : <Heart size={12} />}
+                            {senderName || (isUser ? "User" : "Doula")}
+                          </div>
+                          <p
+                            style={{
+                              fontSize: 14,
+                              color: PreggaColors.neutral900,
+                              margin: 0,
+                              lineHeight: 1.5,
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {msg.content}
+                          </p>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: PreggaColors.neutral400,
+                              marginTop: 4,
+                              textAlign: "right",
+                            }}
+                          >
+                            {formatMessageTime(msg.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function FullChatView({
+  conversationId,
+  onGoBack,
+  isMobile,
+}: {
+  conversationId: string;
+  onGoBack: () => void;
+  isMobile: boolean;
+}) {
+  const [messages, setMessages] = useState<MessageData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const LIMIT = 50;
+
+  const { data: conversation } = useSupabaseQuery<ConversationWithUsers | null>(
+    ['conversation', conversationId],
+    () => fetchConversationById(conversationId)
+  );
+
+  const loadMessages = async (newOffset: number = 0, append: boolean = false) => {
+    if (append) setIsLoadingMore(true);
+    else setIsLoading(true);
+
+    try {
+      const result = await fetchConversationMessages(conversationId, LIMIT, newOffset);
+      if (append) {
+        setMessages((prev) => [...result.data, ...prev]);
+      } else {
+        setMessages(result.data as MessageData[]);
+      }
+      setTotalCount(result.count);
+      setHasMore(newOffset + LIMIT < result.count);
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMessages(0);
+  }, [conversationId]);
+
+  const loadMore = () => {
+    const newOffset = offset + LIMIT;
+    setOffset(newOffset);
+    loadMessages(newOffset, true);
+  };
+
+  const formatMessageTime = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
+  const formatMessageDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const groupMessagesByDate = (msgs: MessageData[]) => {
+    const groups: { date: string; messages: MessageData[] }[] = [];
+    let currentDate = "";
+
+    msgs.forEach((msg) => {
+      const msgDate = formatMessageDate(msg.created_at);
+      if (msgDate !== currentDate) {
+        currentDate = msgDate;
+        groups.push({ date: currentDate, messages: [msg] });
+      } else {
+        groups[groups.length - 1].messages.push(msg);
+      }
+    });
+
+    return groups;
+  };
+
+  const messageGroups = groupMessagesByDate(messages);
+  const pregnantUser = conversation?.pregnant_user;
+  const doula = conversation?.doula;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 120px)", minHeight: 500 }}>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "16px 0",
+          borderBottom: `1px solid ${PreggaColors.neutral100}`,
+          marginBottom: 16,
+        }}
+      >
+        <button
+          onClick={onGoBack}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: PreggaColors.neutral600,
+            padding: 8,
+            borderRadius: 8,
+            display: "flex",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.neutral100)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>
+            Chat History
+          </h1>
+          <p style={{ fontSize: 13, color: PreggaColors.neutral500, margin: "2px 0 0" }}>
+            {pregnantUser?.display_name || "User"} & {doula?.display_name || "Doula"} • {totalCount} messages
+          </p>
+        </div>
+        {conversation && (
+          <Badge variant={conversation.is_active ? "sage" : "neutral"}>
+            {conversation.is_active ? "Active" : "Ended"}
+          </Badge>
+        )}
+      </div>
+
+      {/* Chat Container */}
+      <div
+        style={{
+          flex: 1,
+          background: PreggaColors.white,
+          borderRadius: 16,
+          border: `1px solid ${PreggaColors.secondary300}`,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Participants Bar */}
+        <div
+          style={{
+            padding: "12px 20px",
+            background: PreggaColors.neutral50,
+            borderBottom: `1px solid ${PreggaColors.neutral100}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: PreggaColors.sage100,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: PreggaColors.sage600,
+                  overflow: "hidden",
+                }}
+              >
+                {pregnantUser?.avatar_url ? (
+                  <img src={pregnantUser.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <User size={16} />
+                )}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700 }}>
+                {pregnantUser?.display_name || "User"}
+              </span>
+            </div>
+            <span style={{ color: PreggaColors.neutral300 }}>•</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: PreggaColors.terracotta100,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: PreggaColors.terracotta600,
+                  overflow: "hidden",
+                }}
+              >
+                {doula?.avatar_url ? (
+                  <img src={doula.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <Heart size={16} />
+                )}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700 }}>
+                {doula?.display_name || "Doula"}
+              </span>
+            </div>
+          </div>
+          <span style={{ fontSize: 12, color: PreggaColors.neutral400 }}>Read-only</span>
+        </div>
+
+        {/* Messages Area */}
+        <div style={{ flex: 1, overflowY: "auto", background: PreggaColors.bgSecondary }}>
+          {isLoading ? (
+            <div style={{ padding: 60, textAlign: "center" }}>
+              <Loader2 size={32} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
+              <p style={{ marginTop: 16, color: PreggaColors.neutral500, fontSize: 14 }}>Loading messages...</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div style={{ padding: 60, textAlign: "center" }}>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 16,
+                  background: PreggaColors.neutral100,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 16px",
+                }}
+              >
+                <MessageCircle size={28} color={PreggaColors.neutral400} />
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 4px" }}>
+                No messages yet
+              </h3>
+              <p style={{ color: PreggaColors.neutral500, fontSize: 14, margin: 0 }}>
+                This conversation has no messages
+              </p>
+            </div>
+          ) : (
+            <div>
+              {hasMore && (
+                <div style={{ padding: "16px 20px", textAlign: "center" }}>
+                  <button
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                    style={{
+                      background: PreggaColors.white,
+                      border: `1px solid ${PreggaColors.secondary300}`,
+                      borderRadius: 8,
+                      padding: "10px 20px",
+                      color: PreggaColors.sage600,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: isLoadingMore ? "default" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} />
+                        Load older messages
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              <div style={{ padding: isMobile ? "12px 16px" : "20px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
+                {messageGroups.map((group, groupIdx) => (
+                  <div key={groupIdx}>
+                    <div style={{ textAlign: "center", marginBottom: 16 }}>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: PreggaColors.neutral500,
+                          background: PreggaColors.white,
+                          padding: "6px 16px",
+                          borderRadius: 16,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        {group.date}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {group.messages.map((msg) => {
+                        const isUser = msg.sender_id === pregnantUser?.id;
+                        const senderName = isUser ? pregnantUser?.display_name : doula?.display_name;
+
+                        return (
+                          <div
+                            key={msg.id}
+                            style={{
+                              display: "flex",
+                              flexDirection: isUser ? "row" : "row-reverse",
+                              gap: 10,
+                              alignItems: "flex-end",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: "50%",
+                                background: isUser ? PreggaColors.sage100 : PreggaColors.terracotta100,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: isUser ? PreggaColors.sage600 : PreggaColors.terracotta600,
+                                flexShrink: 0,
+                                fontSize: 12,
+                              }}
+                            >
+                              {isUser ? <User size={14} /> : <Heart size={14} />}
+                            </div>
+                            <div
+                              style={{
+                                maxWidth: isMobile ? "80%" : "60%",
+                                background: isUser ? PreggaColors.white : PreggaColors.terracotta50,
+                                borderRadius: isUser ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
+                                padding: "12px 16px",
+                                boxShadow: isUser ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                                border: isUser ? `1px solid ${PreggaColors.secondary300}` : "none",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: isUser ? PreggaColors.sage700 : PreggaColors.terracotta700,
+                                  marginBottom: 6,
+                                }}
+                              >
+                                {senderName || (isUser ? "User" : "Doula")}
+                              </div>
+                              <p
+                                style={{
+                                  fontSize: 14,
+                                  color: PreggaColors.neutral900,
+                                  margin: 0,
+                                  lineHeight: 1.6,
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                }}
+                              >
+                                {msg.content}
+                              </p>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: PreggaColors.neutral400,
+                                  marginTop: 6,
+                                  textAlign: "right",
+                                }}
+                              >
+                                {formatMessageTime(msg.created_at)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Read-only Footer */}
+        <div
+          style={{
+            padding: "12px 20px",
+            background: PreggaColors.neutral50,
+            borderTop: `1px solid ${PreggaColors.neutral100}`,
+            textAlign: "center",
+          }}
+        >
+          <p style={{ fontSize: 13, color: PreggaColors.neutral500, margin: 0 }}>
+            This is a read-only view of the conversation. Messages cannot be sent from the admin panel.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

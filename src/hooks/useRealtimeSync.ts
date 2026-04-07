@@ -10,6 +10,7 @@ type TableName =
   | 'broadcast_requests'
   | 'broadcast_rejections'
   | 'conversations'
+  | 'messages'
   | 'subscriptions'
   | 'weekly_content'
   | 'app_config'
@@ -44,6 +45,10 @@ const TABLE_CACHE_MAPPINGS: TableCacheMapping[] = [
   { 
     table: 'conversations', 
     invalidatePatterns: ['conversations', 'chat', 'dashboard'] 
+  },
+  { 
+    table: 'messages', 
+    invalidatePatterns: ['messages', 'chat', 'conversations'] 
   },
   { 
     table: 'subscriptions', 

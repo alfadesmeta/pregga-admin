@@ -10,7 +10,6 @@ import {
   BroadcastsView,
   WeeklyContentView,
   SubscriptionsView,
-  AppConfigView,
   SettingsView,
 } from "./components/views";
 import type { User } from "@supabase/supabase-js";
@@ -30,7 +29,6 @@ const sectionTitles: Record<Section, string> = {
   Broadcasts: "Broadcasts",
   "Weekly Content": "Weekly Content",
   Subscriptions: "Subscriptions",
-  "App Config": "App Configuration",
   Settings: "Settings",
 };
 
@@ -93,7 +91,6 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
         broadcasts: "Broadcasts",
         content: "Weekly Content",
         subscriptions: "Subscriptions",
-        config: "App Config",
         settings: "Settings",
       };
       const targetSection = sectionMap[result.id];
@@ -120,6 +117,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             key={refreshKey}
             isMobile={isMobile}
             onNavigateToSubView={handleNavigateToSectionWithSubView}
+            onNavigateToSection={(s) => navigateToSection(s as Section)}
           />
         );
       case "Users":
@@ -175,8 +173,6 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             onGoBack={goBack}
           />
         );
-      case "App Config":
-        return <AppConfigView key={refreshKey} isMobile={isMobile} />;
       case "Settings":
         return <SettingsView key={refreshKey} isMobile={isMobile} user={user} profile={profile} />;
       default:

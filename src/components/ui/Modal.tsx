@@ -50,7 +50,7 @@ export function Modal({
 
   if (!open) return null;
 
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   const modalContent = (
     <>
@@ -89,7 +89,7 @@ export function Modal({
             position: "relative",
             width: "100%",
             maxWidth: isMobile ? "100%" : width,
-            maxHeight: isMobile ? "90vh" : "85vh",
+            maxHeight: isMobile ? "92vh" : "85vh",
             background: PreggaColors.white,
             borderRadius: isMobile ? "16px 16px 0 0" : 12,
             boxShadow: PreggaShadows.modal,

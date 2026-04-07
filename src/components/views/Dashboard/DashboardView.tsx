@@ -28,7 +28,7 @@ import {
   fetchDashboardStats,
   fetchRecentUsers,
   fetchPendingVerifications,
-  fetchWeeklyRegistrations,
+  fetchDailyRegistrations,
   type DashboardStats,
 } from "../../../lib/api";
 import type { UserWithProfile, DoulaWithProfile } from "../../../types/database";
@@ -36,6 +36,7 @@ import type { UserWithProfile, DoulaWithProfile } from "../../../types/database"
 interface DashboardViewProps {
   isMobile: boolean;
   onNavigateToSubView?: (section: string, id: string) => void;
+  onNavigateToSection?: (section: string) => void;
 }
 
 const chartLineColor = "#6B7B5F";
@@ -151,7 +152,7 @@ function ShimmerKPICard() {
   );
 }
 
-export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewProps) {
+export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSection }: DashboardViewProps) {
   const [chartVisible, setChartVisible] = useState(false);
   const [chartKey, setChartKey] = useState(0);
 
@@ -170,9 +171,9 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
     fetchPendingVerifications
   );
 
-  const { data: weeklyData, isLoading: chartLoading } = useSupabaseQuery<{ week: string; count: number }[]>(
-    ['dashboard', 'weeklyRegistrations'],
-    fetchWeeklyRegistrations
+  const { data: dailyData, isLoading: chartLoading } = useSupabaseQuery<{ date: string; count: number }[]>(
+    ['dashboard', 'dailyRegistrations'],
+    () => fetchDailyRegistrations(30)
   );
 
   useEffect(() => {
@@ -182,10 +183,18 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
     return () => clearTimeout(timer);
   }, []);
 
-  const chartData = weeklyData?.map(item => ({
-    day: new Date(item.week).toLocaleDateString('en-US', { weekday: 'short' }),
+  const chartData = dailyData?.map(item => ({
+    day: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     value: item.count,
+    fullDate: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
   })) || [];
+
+  const totalRegistrations = chartData.reduce((sum, d) => sum + d.value, 0);
+  const firstHalf = chartData.slice(0, Math.floor(chartData.length / 2));
+  const secondHalf = chartData.slice(Math.floor(chartData.length / 2));
+  const firstHalfTotal = firstHalf.reduce((sum, d) => sum + d.value, 0);
+  const secondHalfTotal = secondHalf.reduce((sum, d) => sum + d.value, 0);
+  const growthPercent = firstHalfTotal > 0 ? Math.round(((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100) : 0;
 
   const recentActivities = recentUsers?.map(user => ({
     id: user.id,
@@ -240,6 +249,7 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                 iconBg={PreggaColors.sage100}
                 iconColor={PreggaColors.sage600}
                 delay={0}
+                onClick={() => onNavigateToSection?.("Users")}
               />
               <AnimatedStatCard
                 title="Active Doulas"
@@ -250,6 +260,7 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                 iconBg={PreggaColors.rose100}
                 iconColor={PreggaColors.rose600}
                 delay={100}
+                onClick={() => onNavigateToSection?.("Doulas")}
               />
               <AnimatedStatCard
                 title="Conversations"
@@ -259,6 +270,7 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                 iconBg={PreggaColors.primary100}
                 iconColor={PreggaColors.primary600}
                 delay={200}
+                onClick={() => onNavigateToSection?.("Conversations")}
               />
               <AnimatedStatCard
                 title="Broadcasts"
@@ -269,6 +281,7 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                 iconBg={PreggaColors.terracotta100}
                 iconColor={PreggaColors.terracotta600}
                 delay={300}
+                onClick={() => onNavigateToSection?.("Broadcasts")}
               />
             </>
           )}
@@ -282,7 +295,11 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
             gap: 20,
           }}
         >
-          <Card title="User Registrations" subtitle="Last 30 days" delay={400}>
+          <Card 
+            title="User Registrations" 
+            subtitle={`Last 30 days${totalRegistrations > 0 ? ` • ${totalRegistrations} total${growthPercent !== 0 ? ` • ${growthPercent > 0 ? '+' : ''}${growthPercent}% vs prev period` : ''}` : ''}`}
+            delay={400}
+          >
             <div
               style={{
                 height: 280,
@@ -325,7 +342,15 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                         border: `1px solid ${PreggaColors.neutral200}`,
                         boxShadow: PreggaShadows.card,
                         fontSize: 13,
+                        background: PreggaColors.white,
                       }}
+                      labelFormatter={(_, payload) => {
+                        if (payload && payload[0]?.payload?.fullDate) {
+                          return payload[0].payload.fullDate;
+                        }
+                        return '';
+                      }}
+                      formatter={(value: number) => [`${value} registrations`, 'New Users']}
                     />
                     <Area
                       type="monotone"
@@ -518,6 +543,7 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                 {recentActivities.map((activity, index) => (
                   <div
                     key={activity.id}
+                    onClick={() => onNavigateToSubView?.("Users", activity.id)}
                     style={{
                       display: "flex",
                       alignItems: "flex-start",
@@ -527,7 +553,15 @@ export function DashboardView({ isMobile, onNavigateToSubView }: DashboardViewPr
                         index < recentActivities.length - 1
                           ? `1px solid ${PreggaColors.neutral100}`
                           : "none",
+                      cursor: "pointer",
+                      borderRadius: 6,
+                      margin: "0 -4px",
+                      paddingLeft: 4,
+                      paddingRight: 4,
+                      transition: "background 0.12s",
                     }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.neutral50)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <div
                       style={{
@@ -593,6 +627,7 @@ interface AnimatedStatCardProps {
   iconBg: string;
   iconColor: string;
   delay?: number;
+  onClick?: () => void;
 }
 
 function AnimatedStatCard({
@@ -605,9 +640,11 @@ function AnimatedStatCard({
   iconBg,
   iconColor,
   delay = 0,
+  onClick,
 }: AnimatedStatCardProps) {
   const animatedValue = useCountUp(numericValue, 1500, delay);
   const [isVisible, setIsVisible] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), delay);
@@ -616,17 +653,22 @@ function AnimatedStatCard({
 
   return (
     <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         background: PreggaColors.white,
         borderRadius: 16,
         padding: 20,
-        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
+        boxShadow: hovered && onClick ? "0 4px 12px rgba(107, 127, 95, 0.12)" : "0 1px 3px rgba(0, 0, 0, 0.08)",
+        border: `1px solid ${hovered && onClick ? PreggaColors.sage400 : "transparent"}`,
         display: "flex",
         flexDirection: "column",
         gap: 12,
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.4s ease, transform 0.4s ease",
+        transition: "opacity 0.4s ease, transform 0.4s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

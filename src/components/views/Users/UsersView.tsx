@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { PreggaColors, PreggaShadows } from "../../../theme/colors";
+import { PreggaColors } from "../../../theme/colors";
 import { DataTable, TableColumn } from "../../ui/DataTable";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
@@ -34,6 +34,7 @@ import {
   CreditCard,
   AlertCircle,
 } from "lucide-react";
+import { TabSelector, Tab } from "../../ui";
 
 interface UsersViewProps {
   isMobile: boolean;
@@ -579,57 +580,12 @@ function UserDetailView({
       </Card>
 
       {/* Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: 4,
-          background: PreggaColors.white,
-          borderRadius: 12,
-          padding: 6,
-          boxShadow: PreggaShadows.sm,
-          overflowX: "auto",
-        }}
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              flex: isMobile ? "0 0 auto" : 1,
-              padding: isMobile ? "10px 14px" : "11px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: activeTab === tab.id ? PreggaColors.sage500 : "transparent",
-              color: activeTab === tab.id ? PreggaColors.white : PreggaColors.neutral500,
-              fontWeight: 500,
-              fontSize: 13,
-              cursor: "pointer",
-              fontFamily: "'Inter', sans-serif",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              whiteSpace: "nowrap",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.background = PreggaColors.neutral100;
-                e.currentTarget.style.color = PreggaColors.neutral700;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = PreggaColors.neutral500;
-              }
-            }}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <TabSelector
+        tabs={tabs as unknown as Tab[]}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        isMobile={isMobile}
+      />
 
       {/* Tab Content */}
       {activeTab === "profile" && (

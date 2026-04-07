@@ -22,11 +22,6 @@ export function SettingsView({ isMobile, user, profile }: SettingsViewProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>Settings</h2>
-        <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "4px 0 0" }}>Manage your admin account</p>
-      </div>
-
       <div style={{ display: "flex", gap: 0, background: PreggaColors.white, borderRadius: 12, padding: 4, border: `1px solid ${PreggaColors.secondary300}` }}>
         {[{ id: "profile", label: "Profile", icon: <UserIcon size={14} /> }, { id: "password", label: "Password", icon: <Lock size={14} /> }].map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as typeof activeTab)} style={{ flex: 1, padding: "12px 20px", borderRadius: 8, border: activeTab === tab.id ? `1px solid ${PreggaColors.secondary300}` : "1px solid transparent", background: activeTab === tab.id ? PreggaColors.secondary100 : "transparent", color: activeTab === tab.id ? PreggaColors.neutral900 : PreggaColors.neutral500, fontWeight: 500, fontSize: 14, cursor: "pointer", fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>

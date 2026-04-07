@@ -1,11 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { PreggaColors, PreggaShadows } from "../../theme/colors";
-import {
-  Search,
-  LayoutDashboard,
-  Users,
-  Heart,
-  MessageCircle,
+import { 
+  Search, 
+  LayoutDashboard, 
+  Users, 
+  Heart, 
+  MessageCircle, 
+  Radio, 
+  CreditCard, 
+  FileText, 
+  Settings,
 } from "lucide-react";
 
 interface SearchResult {
@@ -59,10 +63,14 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
   );
 
   const defaultResults: SearchResult[] = [
-    { id: "dashboard", title: "Dashboard", subtitle: "Go to Dashboard", type: "page", icon: <LayoutDashboard size={16} /> },
-    { id: "users", title: "Users", subtitle: "Manage users", type: "page", icon: <Users size={16} /> },
-    { id: "doulas", title: "Doulas", subtitle: "Manage doulas", type: "page", icon: <Heart size={16} /> },
-    { id: "chat", title: "Chat Monitoring", subtitle: "Monitor conversations", type: "page", icon: <MessageCircle size={16} /> },
+    { id: "dashboard", title: "Dashboard", subtitle: "Overview and statistics", type: "page", icon: <LayoutDashboard size={16} /> },
+    { id: "users", title: "Users", subtitle: "Manage pregnant users", type: "page", icon: <Users size={16} /> },
+    { id: "doulas", title: "Doulas", subtitle: "Manage doula profiles", type: "page", icon: <Heart size={16} /> },
+    { id: "subscriptions", title: "Subscriptions", subtitle: "Manage user subscriptions", type: "page", icon: <CreditCard size={16} /> },
+    { id: "conversations", title: "Conversations", subtitle: "View chat conversations", type: "page", icon: <MessageCircle size={16} /> },
+    { id: "broadcasts", title: "Broadcasts", subtitle: "Broadcast requests", type: "page", icon: <Radio size={16} /> },
+    { id: "weekly-content", title: "Weekly Content", subtitle: "Manage pregnancy content", type: "page", icon: <FileText size={16} /> },
+    { id: "settings", title: "Settings", subtitle: "Admin profile settings", type: "page", icon: <Settings size={16} /> },
   ];
 
   const displayResults = query ? filteredResults : defaultResults;
@@ -72,12 +80,12 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 1000,
+        zIndex: 10000,
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
         paddingTop: 100,
-        background: "rgba(0, 0, 0, 0.5)",
+        background: "rgba(0, 0, 0, 0.4)",
         backdropFilter: "blur(2px)",
       }}
       onClick={(e) => {
@@ -93,22 +101,31 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
           boxShadow: PreggaShadows.modal,
           overflow: "hidden",
           animation: "modalIn 0.15s ease-out",
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         }}
       >
+        <style>{`
+          @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+          }
+        `}</style>
+        
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 12,
             padding: "16px 20px",
-            borderBottom: `1px solid ${PreggaColors.border}`,
+            borderBottom: `1px solid ${PreggaColors.secondary300}`,
           }}
         >
-          <Search size={18} style={{ color: PreggaColors.neutral400 }} />
+          <Search size={18} style={{ color: PreggaColors.neutral500 }} />
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search users, doulas, chats..."
+            aria-label="Navigate to a section"
+            placeholder="Navigate to a section..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{
@@ -116,7 +133,7 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
               border: "none",
               outline: "none",
               fontSize: 15,
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: "inherit",
               color: PreggaColors.neutral900,
               background: "transparent",
             }}
@@ -163,23 +180,23 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
                   border: "none",
                   background: "transparent",
                   cursor: "pointer",
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "inherit",
                   textAlign: "left",
                   transition: "background 0.1s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.bgSecondary)}
+                onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.sage50)}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <div
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: PreggaColors.primary100,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: PreggaColors.sage100,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: PreggaColors.primary500,
+                    color: PreggaColors.sage700,
                   }}
                 >
                   {result.icon}
@@ -189,9 +206,7 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
                     {result.title}
                   </div>
                   {result.subtitle && (
-                    <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
-                      {result.subtitle}
-                    </div>
+                    <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{result.subtitle}</div>
                   )}
                 </div>
                 <span
@@ -199,8 +214,8 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
                     fontSize: 11,
                     padding: "2px 8px",
                     borderRadius: 4,
-                    background: PreggaColors.primary100,
-                    color: PreggaColors.primary600,
+                    background: PreggaColors.neutral100,
+                    color: PreggaColors.neutral500,
                     textTransform: "capitalize",
                   }}
                 >

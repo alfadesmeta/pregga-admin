@@ -128,6 +128,19 @@ export interface DeletionRequest {
   completed_at: string | null;
 }
 
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface MessageWithSender extends Message {
+  sender: Profile;
+}
+
 export interface UserWithProfile extends Profile {
   pregnant_profiles: PregnantProfile | null;
   subscriptions: Subscription[];

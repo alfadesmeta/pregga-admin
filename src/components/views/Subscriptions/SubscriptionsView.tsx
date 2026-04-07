@@ -12,7 +12,8 @@ import { Modal } from "../../ui/Modal";
 import { fetchSubscriptions, fetchSubscriptionById, extendSubscription, cancelSubscription, type SubscriptionFilters } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
 import type { Subscription, Profile, SubscriptionPlan, SubscriptionStatus } from "../../../types/database";
-import { Search, CreditCard, Calendar, ArrowLeft, X, AlertCircle, Clock, XCircle, Check } from "lucide-react";
+import { Search, CreditCard, Calendar, X, AlertCircle, Clock, XCircle, Check, User, Settings } from "lucide-react";
+import { DetailHeader, TabSelector, Tab } from "../../ui";
 
 interface SubscriptionsViewProps {
   isMobile: boolean;
@@ -161,6 +162,7 @@ function StatCard({ label, value, icon, color, delay = 0 }: { label: string; val
 }
 
 function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile }: { subscriptionId: string; onGoBack: () => void; onRefresh: () => void; isMobile: boolean }) {
+  const [activeTab, setActiveTab] = useState<"details" | "actions">("details");
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [extendDate, setExtendDate] = useState("");
@@ -192,39 +194,105 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
   };
 
   if (isLoading) return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
-  if (error || !subscription) return <div style={{ padding: 40, textAlign: "center" }}><AlertCircle size={48} color={PreggaColors.error500} /><h3>Subscription not found</h3><Button onClick={onGoBack}>Go Back</Button></div>;
+  if (error || !subscription) return <div style={{ padding: 40, textAlign: "center" }}><AlertCircle size={48} color={PreggaColors.error500} style={{ marginBottom: 16 }} /><h3 style={{ color: PreggaColors.neutral900, marginBottom: 8 }}>Subscription not found</h3><Button onClick={onGoBack} style={{ marginTop: 16 }}>Go Back</Button></div>;
+
+  const getStatusGradient = (): [string, string] => {
+    if (subscription.status === 'active') return [PreggaColors.sage400, PreggaColors.sage500];
+    if (subscription.status === 'trial') return [PreggaColors.warning400, PreggaColors.warning500];
+    return [PreggaColors.neutral300, PreggaColors.neutral400];
+  };
+
+  const tabs: Tab[] = [
+    { id: "details", label: "Details", icon: <CreditCard size={15} /> },
+    ...(subscription.status === 'active' ? [{ id: "actions" as const, label: "Actions", icon: <Settings size={15} /> }] : []),
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onGoBack} style={{ background: "none", border: "none", cursor: "pointer", color: PreggaColors.neutral600 }}><ArrowLeft size={20} /></button>
-        <div><h1 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>Subscription Details</h1></div>
-      </div>
+      {/* Header */}
+      <DetailHeader
+        title={subscription.user?.display_name || "Subscription"}
+        subtitle={subscription.user?.email || subscription.user?.phone || "No contact"}
+        avatarFallback={subscription.user?.display_name || "User"}
+        avatarGradient={getStatusGradient()}
+        avatarIcon={<User size={24} />}
+        onGoBack={onGoBack}
+        stats={[
+          { label: "Plan", value: getPlanLabel(subscription.plan), highlight: true },
+          { label: "Status", value: subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1), highlight: subscription.status === 'active' },
+          { label: "Start Date", value: formatDate(subscription.starts_at) },
+          { label: "End Date", value: subscription.ends_at ? formatDate(subscription.ends_at) : "Ongoing" },
+        ]}
+        isMobile={isMobile}
+        accentColor={`linear-gradient(90deg, ${getStatusGradient()[0]} 0%, ${getStatusGradient()[1]} 100%)`}
+      />
 
-      <Card padding="20px">
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
-            {(subscription.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
-          </div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>{subscription.user?.display_name || "Unknown"}</div>
-            <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{subscription.user?.email || subscription.user?.phone}</div>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Plan</div><div style={{ fontSize: 16, fontWeight: 600 }}>{getPlanLabel(subscription.plan)}</div></div>
-          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Status</div><div style={{ marginTop: 4 }}><StatusBadge status={subscription.status} /></div></div>
-          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Start Date</div><div style={{ fontSize: 16, fontWeight: 600 }}>{formatDate(subscription.starts_at)}</div></div>
-          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>End Date</div><div style={{ fontSize: 16, fontWeight: 600 }}>{subscription.ends_at ? formatDate(subscription.ends_at) : "Ongoing"}</div></div>
-        </div>
-      </Card>
+      {/* Tabs */}
+      <TabSelector
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        isMobile={isMobile}
+      />
 
-      {subscription.status === 'active' && (
-        <Card padding="20px">
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Admin Actions</h3>
-          <div style={{ display: "flex", gap: 12 }}>
-            <Button icon={<Calendar size={16} />} onClick={() => setShowExtendModal(true)}>Extend Subscription</Button>
-            <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}><XCircle size={16} />Cancel</Button>
+      {/* Tab Content */}
+      {activeTab === "details" && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Subscription Information
+            </h3>
+          </div>
+          <div style={{ padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
+                {(subscription.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{subscription.user?.display_name || "Unknown"}</div>
+                <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{subscription.user?.email || subscription.user?.phone}</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+              <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Plan</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{getPlanLabel(subscription.plan)}</div>
+              </div>
+              <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Status</div>
+                <div style={{ marginTop: 4 }}><StatusBadge status={subscription.status} /></div>
+              </div>
+              <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Start Date</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{formatDate(subscription.starts_at)}</div>
+              </div>
+              <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>End Date</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{subscription.ends_at ? formatDate(subscription.ends_at) : "Ongoing"}</div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "actions" && subscription.status === 'active' && (
+        <Card padding="0">
+          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
+              Admin Actions
+            </h3>
+          </div>
+          <div style={{ padding: 24 }}>
+            <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
+              Manage this subscription by extending the end date or cancelling.
+            </p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Button icon={<Calendar size={16} />} onClick={() => setShowExtendModal(true)}>Extend Subscription</Button>
+              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+                <XCircle size={16} />
+                Cancel Subscription
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -234,7 +302,7 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
       </Modal>
 
       <Modal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="" width={400} footer={<div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}><Button variant="outline" onClick={() => setShowCancelModal(false)}>Keep Active</Button><Button onClick={handleCancel} loading={isProcessing} style={{ background: PreggaColors.error500 }}>Cancel Subscription</Button></div>}>
-        <div style={{ textAlign: "center" }}><div style={{ width: 64, height: 64, borderRadius: "50%", background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><XCircle size={28} color={PreggaColors.error500} /></div><h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>Cancel subscription?</h3><p style={{ fontSize: 14, color: PreggaColors.neutral500 }}>This will immediately cancel the user's subscription.</p></div>
+        <div style={{ textAlign: "center" }}><div style={{ width: 64, height: 64, borderRadius: "50%", background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><XCircle size={28} color={PreggaColors.error500} /></div><h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px", color: PreggaColors.neutral900 }}>Cancel subscription?</h3><p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: 0 }}>This will immediately cancel the user's subscription.</p></div>
       </Modal>
     </div>
   );

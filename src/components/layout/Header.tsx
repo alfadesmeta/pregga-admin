@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import toast from "react-hot-toast";
 import { PreggaColors } from "../../theme/colors";
 import { Search, Menu, Calendar, RefreshCw } from "lucide-react";
 
@@ -8,17 +9,18 @@ interface HeaderProps {
   onMenuClick?: () => void;
   onSearchClick?: () => void;
   onRefresh?: () => void;
+  onLogoClick?: () => void;
 }
 
 function formatDate(): string {
   const now = new Date();
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+  const options: Intl.DateTimeFormatOptions = { 
+    weekday: "short", 
+    month: "short", 
+    day: "numeric", 
+    year: "numeric" 
   };
-  return now.toLocaleDateString("en-US", options).replace(",", "");
+  return now.toLocaleDateString("en-US", options);
 }
 
 export function Header({
@@ -27,6 +29,7 @@ export function Header({
   onMenuClick,
   onSearchClick,
   onRefresh,
+  onLogoClick,
 }: HeaderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -34,6 +37,7 @@ export function Header({
     if (isRefreshing) return;
     setIsRefreshing(true);
     onRefresh?.();
+    toast.success("Data refreshed");
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
@@ -44,18 +48,19 @@ export function Header({
         justifyContent: "space-between",
         alignItems: "center",
         gap: 12,
-        marginBottom: 24,
+        marginBottom: 20,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
         {isMobile && onMenuClick && (
           <button
             onClick={onMenuClick}
+            aria-label="Open menu"
             style={{
               width: 40,
               height: 40,
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
+              borderRadius: 10,
+              border: `1px solid ${PreggaColors.secondary300}`,
               background: PreggaColors.white,
               cursor: "pointer",
               display: "flex",
@@ -68,36 +73,51 @@ export function Header({
             <Menu size={20} />
           </button>
         )}
-        <h1
-          style={{
-            fontSize: isMobile ? 24 : 28,
-            fontWeight: 600,
-            color: PreggaColors.neutral900,
-            letterSpacing: -0.5,
-            margin: 0,
-            fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          {title}
-        </h1>
+        {isMobile ? (
+          <img
+            src="/logo.png"
+            alt="Pregga"
+            style={{ height: 32, objectFit: "contain", cursor: onLogoClick ? "pointer" : "default" }}
+            onClick={onLogoClick}
+          />
+        ) : (
+          <h1
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              color: PreggaColors.neutral900,
+              letterSpacing: -0.5,
+              margin: 0,
+              fontFamily: "'Inter', -apple-system, sans-serif",
+            }}
+          >
+            {title}
+          </h1>
+        )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {/* Search */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         {onSearchClick && (
           <div
             onClick={onSearchClick}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
+              gap: 10,
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${PreggaColors.secondary300}`,
               background: PreggaColors.white,
-              color: PreggaColors.neutral400,
+              color: PreggaColors.neutral500,
               cursor: "pointer",
               fontSize: 14,
+              transition: "border-color 0.15s, box-shadow 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = PreggaColors.sage400;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = PreggaColors.secondary300;
             }}
           >
             <Search size={16} />
@@ -106,11 +126,11 @@ export function Header({
               <span
                 style={{
                   fontSize: 11,
-                  padding: "2px 6px",
-                  borderRadius: 4,
+                  padding: "3px 8px",
+                  borderRadius: 5,
                   background: PreggaColors.neutral100,
                   color: PreggaColors.neutral500,
-                  marginLeft: 8,
+                  marginLeft: 12,
                   fontWeight: 500,
                 }}
               >
@@ -120,51 +140,73 @@ export function Header({
           </div>
         )}
 
-        {/* Date Display */}
         {!isMobile && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
+              gap: 10,
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${PreggaColors.secondary300}`,
               background: PreggaColors.white,
               color: PreggaColors.neutral700,
               fontSize: 14,
+              fontWeight: 500,
             }}
           >
-            <Calendar size={16} style={{ color: PreggaColors.neutral500 }} />
+            <Calendar size={16} />
             <span>{formatDate()}</span>
           </div>
         )}
 
-        {/* Refresh Button */}
-        <button
-          onClick={handleRefresh}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            border: `1px solid ${PreggaColors.neutral200}`,
-            background: PreggaColors.white,
-            cursor: isRefreshing ? "default" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            color: isRefreshing ? PreggaColors.accent500 : PreggaColors.neutral500,
-          }}
-        >
-          <RefreshCw
-            size={16}
+        {!isMobile && (
+          <button
+            onClick={handleRefresh}
+            aria-label="Refresh data"
             style={{
-              animation: isRefreshing ? "spin 1s linear infinite" : "none",
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              border: `1px solid ${PreggaColors.secondary300}`,
+              background: PreggaColors.white,
+              cursor: isRefreshing ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: isRefreshing ? PreggaColors.sage600 : PreggaColors.neutral600,
+              transition: "all 0.15s",
             }}
-          />
-        </button>
+            onMouseEnter={(e) => {
+              if (!isRefreshing) {
+                e.currentTarget.style.borderColor = PreggaColors.sage400;
+                e.currentTarget.style.color = PreggaColors.sage600;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isRefreshing) {
+                e.currentTarget.style.borderColor = PreggaColors.secondary300;
+                e.currentTarget.style.color = PreggaColors.neutral600;
+              }
+            }}
+          >
+            <RefreshCw
+              size={18}
+              style={{
+                animation: isRefreshing ? "spin 1s linear infinite" : "none",
+              }}
+            />
+          </button>
+        )}
       </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

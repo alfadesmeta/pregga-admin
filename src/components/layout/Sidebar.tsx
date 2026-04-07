@@ -8,7 +8,6 @@ import {
   Radio,
   BookOpen,
   CreditCard,
-  Cog,
   Settings,
   LogOut,
   ChevronRight,
@@ -55,7 +54,6 @@ const sections: NavSection[] = [
   {
     title: "System",
     items: [
-      { name: "App Config", label: "App Config", icon: Cog },
       { name: "Settings", label: "Settings", icon: Settings },
     ],
   },

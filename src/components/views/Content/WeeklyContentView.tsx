@@ -58,13 +58,7 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>Weekly Content</h2>
-          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "4px 0 0" }}>
-            Manage pregnancy week-by-week educational content
-          </p>
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
         <Button icon={<Plus size={16} />} onClick={() => { setEditingContent(null); setShowEditModal(true); }}>
           Add Week
         </Button>

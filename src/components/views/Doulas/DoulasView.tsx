@@ -26,7 +26,6 @@ import {
   Search,
   Users,
   Calendar,
-  ArrowLeft,
   Award,
   X,
   AlertCircle,
@@ -40,6 +39,7 @@ import {
   AlertTriangle,
   User,
 } from "lucide-react";
+import { DetailHeader, TabSelector, Tab } from "../../ui";
 
 interface DoulasViewProps {
   isMobile: boolean;
@@ -435,99 +435,48 @@ function DoulaDetailView({
     );
   }
 
-  const tabs = [
-    { id: "profile", label: "Profile", icon: <User size={14} /> },
-    { id: "availability", label: "Availability", icon: <ToggleRight size={14} /> },
-    { id: "clients", label: "Clients", icon: <Users size={14} /> },
-    { id: "conversations", label: "Conversations", icon: <MessageCircle size={14} /> },
-    ...(!doula.doula_profiles?.is_available ? [{ id: "verification" as const, label: "Verification", icon: <Award size={14} /> }] : []),
-    { id: "deactivate", label: "Deactivate", icon: <Trash2 size={14} /> },
-  ] as const;
+  const tabs: Tab[] = [
+    { id: "profile", label: "Profile", icon: <User size={15} /> },
+    { id: "availability", label: "Availability", icon: <ToggleRight size={15} /> },
+    { id: "clients", label: "Clients", icon: <Users size={15} /> },
+    { id: "conversations", label: "Conversations", icon: <MessageCircle size={15} /> },
+    ...(!doula.doula_profiles?.is_available ? [{ id: "verification", label: "Verification", icon: <Award size={15} /> }] : []),
+    { id: "deactivate", label: "Deactivate", icon: <Trash2 size={15} /> },
+  ];
+
+  const initials = (doula.display_name || "D").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={onGoBack} style={{ background: "none", border: "none", cursor: "pointer", color: PreggaColors.neutral600, padding: 0, display: "flex" }}>
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>
-              {doula.display_name || "Doula Profile"}
-            </h1>
-            <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: 0 }}>
-              {doula.email || doula.phone || "No contact info"}
-            </p>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button icon={<Pencil size={16} />} onClick={() => setShowEditModal(true)}>Edit</Button>
-        </div>
-      </div>
-
-      {/* Status Banner */}
-      <div
-        style={{
-          background: doula.doula_profiles?.is_available
-            ? `linear-gradient(135deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)`
-            : `linear-gradient(135deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`,
-          borderRadius: 16,
-          padding: "24px 32px",
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
-          gap: 24,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Verification</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.white }}>
-            {doula.doula_profiles?.is_available ? "Verified" : "Pending"}
-          </div>
-        </div>
-        <div style={{ textAlign: isMobile ? "left" : "center" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Availability</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.white }}>
-            {doula.doula_profiles?.is_available ? "Available" : "Unavailable"}
-          </div>
-        </div>
-        <div style={{ textAlign: isMobile ? "left" : "right" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Joined</div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: PreggaColors.white }}>
-            {formatDate(doula.created_at)}
-          </div>
-        </div>
-      </div>
+      <DetailHeader
+        title={doula.display_name || "Doula Profile"}
+        subtitle={doula.email || doula.phone || "No contact info"}
+        avatarUrl={doula.avatar_url}
+        avatarFallback={doula.display_name || "Doula"}
+        avatarGradient={doula.doula_profiles?.is_available 
+          ? [PreggaColors.sage400, PreggaColors.sage500] 
+          : [PreggaColors.warning400, PreggaColors.warning500]}
+        onGoBack={() => onGoBack?.()}
+        action={<Button icon={<Pencil size={15} />} onClick={() => setShowEditModal(true)} size="sm">Edit</Button>}
+        stats={[
+          { label: "Verification", value: doula.doula_profiles?.is_available ? "Verified" : "Pending", highlight: doula.doula_profiles?.is_available },
+          { label: "Availability", value: doula.doula_profiles?.is_available ? "Available" : "Unavailable", highlight: doula.doula_profiles?.is_available },
+          { label: "Joined", value: formatDate(doula.created_at) },
+        ]}
+        isMobile={isMobile}
+        accentColor={doula.doula_profiles?.is_available 
+          ? `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)` 
+          : `linear-gradient(90deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`}
+      />
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 0, background: PreggaColors.white, borderRadius: 12, padding: 4, border: `1px solid ${PreggaColors.secondary300}`, overflowX: "auto" }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            style={{
-              flex: isMobile ? "0 0 auto" : 1,
-              padding: isMobile ? "10px 16px" : "12px 20px",
-              borderRadius: 8,
-              border: activeTab === tab.id ? `1px solid ${PreggaColors.secondary300}` : "1px solid transparent",
-              background: activeTab === tab.id ? PreggaColors.secondary100 : "transparent",
-              color: activeTab === tab.id ? PreggaColors.neutral900 : PreggaColors.neutral500,
-              fontWeight: 500,
-              fontSize: 13,
-              cursor: "pointer",
-              fontFamily: "'Inter', sans-serif",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <TabSelector
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        isMobile={isMobile}
+      />
 
       {/* Tab Content */}
       {activeTab === "profile" && (
