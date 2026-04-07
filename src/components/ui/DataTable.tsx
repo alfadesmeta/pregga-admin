@@ -1,6 +1,7 @@
 import React from "react";
-import { PreggaColors } from "../../theme/colors";
+import { PreggaColors, PreggaShadows, PreggaTransitions } from "../../theme/colors";
 import { Pagination } from "./Pagination";
+import { Inbox } from "lucide-react";
 
 export interface TableColumn<T> {
   key: keyof T | string;
@@ -8,6 +9,7 @@ export interface TableColumn<T> {
   width?: string;
   render?: (value: unknown, row: T) => React.ReactNode;
   sortable?: boolean;
+  align?: "left" | "center" | "right";
 }
 
 interface DataTableProps<T> {
@@ -21,10 +23,40 @@ interface DataTableProps<T> {
   onPageSizeChange?: (size: number) => void;
   onRowClick?: (row: T) => void;
   emptyMessage?: string;
+  emptyIcon?: React.ReactNode;
   loading?: boolean;
+  isLoading?: boolean;
   renderExpandedRow?: (row: T) => React.ReactNode;
   isMobile?: boolean;
   mobileCardRender?: (row: T) => React.ReactNode;
+  stickyHeader?: boolean;
+}
+
+function ShimmerRow({ columns }: { columns: number }) {
+  return (
+    <tr>
+      {Array.from({ length: columns }).map((_, i) => (
+        <td
+          key={i}
+          style={{
+            padding: "16px",
+            borderBottom: `1px solid ${PreggaColors.neutral100}`,
+          }}
+        >
+          <div
+            style={{
+              height: 16,
+              borderRadius: 4,
+              background: `linear-gradient(90deg, ${PreggaColors.neutral100} 25%, ${PreggaColors.neutral50} 50%, ${PreggaColors.neutral100} 75%)`,
+              backgroundSize: "200% 100%",
+              animation: "shimmer 1.5s infinite",
+              width: i === 0 ? "60%" : i === columns - 1 ? "40%" : "80%",
+            }}
+          />
+        </td>
+      ))}
+    </tr>
+  );
 }
 
 export function DataTable<T extends { id: string | number }>({
@@ -38,11 +70,16 @@ export function DataTable<T extends { id: string | number }>({
   onPageSizeChange,
   onRowClick,
   emptyMessage = "No data found",
+  emptyIcon,
   loading = false,
+  isLoading = false,
   renderExpandedRow,
   isMobile = false,
   mobileCardRender,
+  stickyHeader = false,
 }: DataTableProps<T>) {
+  const isLoadingState = loading || isLoading;
+
   const headerStyle: React.CSSProperties = {
     padding: "12px 16px",
     textAlign: "left",
@@ -50,49 +87,116 @@ export function DataTable<T extends { id: string | number }>({
     fontWeight: 600,
     color: PreggaColors.neutral500,
     textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    borderBottom: `1px solid ${PreggaColors.neutral100}`,
-    background: PreggaColors.white,
-    fontFamily: "'Inter', sans-serif",
+    letterSpacing: "0.05em",
+    borderBottom: `1px solid ${PreggaColors.neutral200}`,
+    background: PreggaColors.neutral50,
+    fontFamily: "'Inter', -apple-system, sans-serif",
+    position: stickyHeader ? "sticky" : "static",
+    top: 0,
+    zIndex: 1,
   };
 
   const cellStyle: React.CSSProperties = {
     padding: "14px 16px",
     fontSize: 14,
-    color: PreggaColors.neutral800,
+    color: PreggaColors.neutral700,
     borderBottom: `1px solid ${PreggaColors.neutral100}`,
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Inter', -apple-system, sans-serif",
   };
 
-  if (loading) {
+  if (isLoadingState) {
     return (
-      <div
-        style={{
-          background: PreggaColors.white,
-          borderRadius: 16,
-          boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ padding: 60, textAlign: "center" }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              border: `3px solid ${PreggaColors.neutral200}`,
-              borderTopColor: PreggaColors.accent500,
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-              margin: "0 auto 16px",
-            }}
-          />
-          <div style={{ color: PreggaColors.neutral500, fontSize: 14 }}>Loading...</div>
+      <>
+        <style>{`
+          @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+        `}</style>
+        <div
+          style={{
+            background: PreggaColors.white,
+            borderRadius: 12,
+            border: `1px solid ${PreggaColors.neutral100}`,
+            boxShadow: PreggaShadows.sm,
+            overflow: "hidden",
+          }}
+        >
+          {isMobile ? (
+            <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: 16,
+                    borderRadius: 10,
+                    border: `1px solid ${PreggaColors.neutral100}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        background: `linear-gradient(90deg, ${PreggaColors.neutral100} 25%, ${PreggaColors.neutral50} 50%, ${PreggaColors.neutral100} 75%)`,
+                        backgroundSize: "200% 100%",
+                        animation: "shimmer 1.5s infinite",
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          height: 14,
+                          width: "60%",
+                          borderRadius: 4,
+                          background: `linear-gradient(90deg, ${PreggaColors.neutral100} 25%, ${PreggaColors.neutral50} 50%, ${PreggaColors.neutral100} 75%)`,
+                          backgroundSize: "200% 100%",
+                          animation: "shimmer 1.5s infinite",
+                          marginBottom: 6,
+                        }}
+                      />
+                      <div
+                        style={{
+                          height: 12,
+                          width: "40%",
+                          borderRadius: 4,
+                          background: `linear-gradient(90deg, ${PreggaColors.neutral100} 25%, ${PreggaColors.neutral50} 50%, ${PreggaColors.neutral100} 75%)`,
+                          backgroundSize: "200% 100%",
+                          animation: "shimmer 1.5s infinite",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {columns.map((col) => (
+                    <th key={String(col.key)} style={{ ...headerStyle, width: col.width }}>
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <ShimmerRow key={i} columns={columns.length} />
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-      </div>
+      </>
     );
   }
 
-  // Mobile card view
   if (isMobile && mobileCardRender) {
     return (
       <div>
@@ -100,13 +204,29 @@ export function DataTable<T extends { id: string | number }>({
           <div
             style={{
               background: PreggaColors.white,
-              borderRadius: 16,
-              padding: 60,
+              borderRadius: 12,
+              border: `1px solid ${PreggaColors.neutral100}`,
+              padding: "48px 24px",
               textAlign: "center",
-              boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
+              boxShadow: PreggaShadows.sm,
             }}
           >
-            <div style={{ color: PreggaColors.neutral400, fontSize: 14 }}>{emptyMessage}</div>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                background: PreggaColors.neutral100,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px",
+                color: PreggaColors.neutral400,
+              }}
+            >
+              {emptyIcon || <Inbox size={24} />}
+            </div>
+            <div style={{ color: PreggaColors.neutral500, fontSize: 14 }}>{emptyMessage}</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -117,9 +237,11 @@ export function DataTable<T extends { id: string | number }>({
                 style={{
                   background: PreggaColors.white,
                   borderRadius: 12,
+                  border: `1px solid ${PreggaColors.neutral100}`,
                   padding: 16,
-                  boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
+                  boxShadow: PreggaShadows.sm,
                   cursor: onRowClick ? "pointer" : "default",
+                  transition: PreggaTransitions.fast,
                 }}
               >
                 {mobileCardRender(row)}
@@ -134,8 +256,9 @@ export function DataTable<T extends { id: string | number }>({
               marginTop: 16,
               background: PreggaColors.white,
               borderRadius: 12,
+              border: `1px solid ${PreggaColors.neutral100}`,
               padding: "12px 16px",
-              boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)",
+              boxShadow: PreggaShadows.sm,
             }}
           >
             <Pagination
@@ -157,8 +280,9 @@ export function DataTable<T extends { id: string | number }>({
     <div
       style={{
         background: PreggaColors.white,
-        borderRadius: 16,
-        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
+        borderRadius: 12,
+        border: `1px solid ${PreggaColors.neutral100}`,
+        boxShadow: PreggaShadows.sm,
         overflow: "hidden",
       }}
     >
@@ -167,7 +291,14 @@ export function DataTable<T extends { id: string | number }>({
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={String(col.key)} style={{ ...headerStyle, width: col.width }}>
+                <th
+                  key={String(col.key)}
+                  style={{
+                    ...headerStyle,
+                    width: col.width,
+                    textAlign: col.align || "left",
+                  }}
+                >
                   {col.label}
                 </th>
               ))}
@@ -176,8 +307,26 @@ export function DataTable<T extends { id: string | number }>({
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} style={{ ...cellStyle, textAlign: "center", padding: 60 }}>
-                  <div style={{ color: PreggaColors.neutral400, fontSize: 14 }}>{emptyMessage}</div>
+                <td
+                  colSpan={columns.length}
+                  style={{ ...cellStyle, textAlign: "center", padding: "48px 24px" }}
+                >
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 16,
+                      background: PreggaColors.neutral100,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 16px",
+                      color: PreggaColors.neutral400,
+                    }}
+                  >
+                    {emptyIcon || <Inbox size={24} />}
+                  </div>
+                  <div style={{ color: PreggaColors.neutral500, fontSize: 14 }}>{emptyMessage}</div>
                 </td>
               </tr>
             ) : (
@@ -187,7 +336,7 @@ export function DataTable<T extends { id: string | number }>({
                     onClick={() => onRowClick?.(row)}
                     style={{
                       cursor: onRowClick ? "pointer" : "default",
-                      transition: "background 0.12s",
+                      transition: PreggaTransitions.fast,
                     }}
                     onMouseEnter={(e) => {
                       if (onRowClick) e.currentTarget.style.background = PreggaColors.neutral50;
@@ -203,6 +352,7 @@ export function DataTable<T extends { id: string | number }>({
                           key={String(col.key)}
                           style={{
                             ...cellStyle,
+                            textAlign: col.align || "left",
                             borderBottom:
                               rowIndex === data.length - 1 && !renderExpandedRow
                                 ? "none"
@@ -222,12 +372,12 @@ export function DataTable<T extends { id: string | number }>({
         </table>
       </div>
 
-      {totalPages > 0 && (
+      {totalPages > 0 && data.length > 0 && (
         <div
           style={{
             padding: "12px 16px",
             borderTop: `1px solid ${PreggaColors.neutral100}`,
-            background: PreggaColors.white,
+            background: PreggaColors.neutral50,
           }}
         >
           <Pagination

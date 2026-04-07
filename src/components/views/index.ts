@@ -2,3 +2,8 @@ export { DashboardView } from "./Dashboard";
 export { UsersView } from "./Users";
 export { DoulasView } from "./Doulas";
 export { ChatView } from "./Chat";
+export { BroadcastsView } from "./Broadcasts/BroadcastsView";
+export { WeeklyContentView } from "./Content/WeeklyContentView";
+export { SubscriptionsView } from "./Subscriptions/SubscriptionsView";
+export { AppConfigView } from "./Config/AppConfigView";
+export { SettingsView } from "./Settings/SettingsView";

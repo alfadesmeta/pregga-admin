@@ -1,0 +1,536 @@
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { useCountUp, useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
+import { PreggaColors } from "../../../theme/colors";
+import { Card } from "../../ui/Card";
+import { Button } from "../../ui/Button";
+import { Input } from "../../ui/Input";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { DataTable } from "../../ui/DataTable";
+import { Select } from "../../ui/Select";
+import { Modal } from "../../ui/Modal";
+import {
+  fetchBroadcasts,
+  fetchBroadcastById,
+  cancelBroadcast,
+  renotifyDoulas,
+  type BroadcastFilters,
+} from "../../../lib/api";
+import { friendlyError } from "../../../lib/errors";
+import type { BroadcastWithDetails, BroadcastStatus } from "../../../types/database";
+import {
+  Search,
+  Radio,
+  Clock,
+  ArrowLeft,
+  X,
+  AlertCircle,
+  XCircle,
+  Bell,
+  User,
+  Users,
+  Check,
+} from "lucide-react";
+
+interface BroadcastsViewProps {
+  isMobile: boolean;
+  subView?: string;
+  onNavigateToSubView?: (subView: string) => void;
+  onGoBack?: () => void;
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTimeAgo(date: string): string {
+  const now = new Date();
+  const then = new Date(date);
+  const diffMs = now.getTime() - then.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return formatDate(date);
+}
+
+function getStatusBadgeVariant(status: BroadcastStatus): "sage" | "warning" | "neutral" | "rose" {
+  switch (status) {
+    case "accepted": return "sage";
+    case "pending": return "warning";
+    case "expired": return "neutral";
+    case "cancelled": return "rose";
+    case "no_doulas": return "neutral";
+    default: return "neutral";
+  }
+}
+
+export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBack }: BroadcastsViewProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<BroadcastFilters>({});
+
+  const {
+    data: broadcasts,
+    count,
+    isLoading,
+    error,
+    page,
+    pageSize,
+    totalPages,
+    setPage,
+    refetch,
+  } = useSupabasePaginatedQuery<BroadcastWithDetails>(
+    ['broadcasts', JSON.stringify(filters), searchQuery],
+    (from, to) => fetchBroadcasts(from, to, { ...filters, search: searchQuery || undefined }),
+    { pageSize: 10 }
+  );
+
+  const pendingCount = broadcasts.filter(b => b.status === 'pending').length;
+  const acceptedCount = broadcasts.filter(b => b.status === 'accepted').length;
+  const expiredCount = broadcasts.filter(b => b.status === 'expired').length;
+
+  const hasActiveFilters = searchQuery || filters.status;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilters({});
+  };
+
+  const handleSelectBroadcast = (id: string) => {
+    if (onNavigateToSubView) {
+      onNavigateToSubView(id);
+    }
+  };
+
+  const handleGoBack = () => {
+    if (onGoBack) {
+      onGoBack();
+    }
+  };
+
+  if (subView) {
+    return (
+      <BroadcastDetailView
+        broadcastId={subView}
+        onGoBack={handleGoBack}
+        onRefresh={refetch}
+        isMobile={isMobile}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <AlertCircle size={48} color={PreggaColors.error500} style={{ marginBottom: 16 }} />
+        <h3 style={{ color: PreggaColors.neutral900, marginBottom: 8 }}>Failed to load broadcasts</h3>
+        <p style={{ color: PreggaColors.neutral500 }}>{friendlyError(error)}</p>
+        <Button onClick={refetch} style={{ marginTop: 16 }}>Try Again</Button>
+      </div>
+    );
+  }
+
+  const columns = [
+    {
+      key: "user",
+      label: "Requesting User",
+      render: (_: unknown, broadcast: BroadcastWithDetails) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary500, fontSize: 13, fontWeight: 600 }}>
+            {(broadcast.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, color: PreggaColors.neutral900, fontSize: 14 }}>
+              {broadcast.user?.display_name || "Unknown User"}
+            </div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
+              {formatTimeAgo(broadcast.created_at)}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "message",
+      label: "Message",
+      render: (_: unknown, broadcast: BroadcastWithDetails) => (
+        <span style={{ fontSize: 13, color: PreggaColors.neutral600 }}>
+          {broadcast.initial_message?.slice(0, 50) || "No message"}
+          {broadcast.initial_message && broadcast.initial_message.length > 50 ? "..." : ""}
+        </span>
+      ),
+    },
+    {
+      key: "notified",
+      label: "Notified",
+      render: (_: unknown, broadcast: BroadcastWithDetails) => (
+        <span style={{ fontSize: 14, color: PreggaColors.neutral700 }}>
+          {broadcast.notified_doulas?.length || 0} doulas
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (_: unknown, broadcast: BroadcastWithDetails) => (
+        <Badge variant={getStatusBadgeVariant(broadcast.status)}>
+          {broadcast.status.replace('_', ' ')}
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      label: "",
+      render: (_: unknown, broadcast: BroadcastWithDetails) => (
+        <Button variant="outline" size="sm" onClick={() => handleSelectBroadcast(broadcast.id)}>
+          View
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+        <StatCard label="Total" value={count} icon={<Radio size={18} />} color={PreggaColors.sage500} delay={0} />
+        <StatCard label="Pending" value={pendingCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={100} />
+        <StatCard label="Accepted" value={acceptedCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={200} />
+        <StatCard label="Expired" value={expiredCount} icon={<XCircle size={18} />} color={PreggaColors.neutral400} delay={300} />
+      </div>
+
+      {/* Filters */}
+      {isMobile ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search size={16} />} showClear onClear={() => setSearchQuery("")} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Select
+                value={filters.status || ""}
+                onChange={(v) => setFilters({ ...filters, status: v as BroadcastStatus || undefined })}
+                options={[
+                  { value: "", label: "All Status" },
+                  { value: "pending", label: "Pending" },
+                  { value: "accepted", label: "Accepted" },
+                  { value: "cancelled", label: "Cancelled" },
+                  { value: "expired", label: "Expired" },
+                  { value: "no_doulas", label: "No Doulas" },
+                ]}
+              />
+            </div>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 8, border: `1px solid ${PreggaColors.neutral200}`, background: PreggaColors.white, color: PreggaColors.neutral500, cursor: "pointer" }}>
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 280 }}>
+            <Input placeholder="Search by user name or message..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search size={16} />} showClear onClear={() => setSearchQuery("")} />
+          </div>
+          <div style={{ width: 150 }}>
+            <Select
+              value={filters.status || ""}
+              onChange={(v) => setFilters({ ...filters, status: v as BroadcastStatus || undefined })}
+              options={[
+                { value: "", label: "All Status" },
+                { value: "pending", label: "Pending" },
+                { value: "accepted", label: "Accepted" },
+                { value: "cancelled", label: "Cancelled" },
+                { value: "expired", label: "Expired" },
+                { value: "no_doulas", label: "No Doulas" },
+              ]}
+            />
+          </div>
+          {hasActiveFilters && (
+            <button onClick={clearFilters} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 42, padding: "0 14px", borderRadius: 8, border: `1px solid ${PreggaColors.neutral200}`, background: PreggaColors.white, color: PreggaColors.neutral700, fontSize: 14, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}>
+              <X size={14} />
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={broadcasts}
+        currentPage={page}
+        totalPages={totalPages}
+        totalItems={count}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        emptyMessage="No broadcast requests found"
+        isMobile={isMobile}
+        isLoading={isLoading}
+        mobileCardRender={(broadcast: BroadcastWithDetails) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }} onClick={() => handleSelectBroadcast(broadcast.id)}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontWeight: 600, fontSize: 14 }}>
+                  {(broadcast.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>{broadcast.user?.display_name || "Unknown"}</div>
+                  <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(broadcast.created_at)}</div>
+                </div>
+              </div>
+              <Badge variant={getStatusBadgeVariant(broadcast.status)}>{broadcast.status.replace('_', ' ')}</Badge>
+            </div>
+            <div style={{ fontSize: 13, color: PreggaColors.neutral600 }}>
+              {broadcast.initial_message?.slice(0, 80) || "No message"}
+              {broadcast.initial_message && broadcast.initial_message.length > 80 ? "..." : ""}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: PreggaColors.neutral500 }}>
+              <span>{broadcast.notified_doulas?.length || 0} doulas notified</span>
+              <span>{broadcast.rejections?.length || 0} rejections</span>
+            </div>
+          </div>
+        )}
+      />
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon, color, delay = 0 }: { label: string; value: number; icon: React.ReactNode; color: string; delay?: number }) {
+  const animatedValue = useCountUp(value, 1500, delay);
+
+  return (
+    <div style={{ background: PreggaColors.white, borderRadius: 12, padding: "16px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{label}</span>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", color }}>
+          {icon}
+        </div>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: PreggaColors.neutral900 }}>{animatedValue}</div>
+    </div>
+  );
+}
+
+function BroadcastDetailView({
+  broadcastId,
+  onGoBack,
+  onRefresh,
+  isMobile,
+}: {
+  broadcastId: string;
+  onGoBack: () => void;
+  onRefresh: () => void;
+  isMobile: boolean;
+}) {
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const { data: broadcast, isLoading, error, refetch } = useSupabaseQuery<BroadcastWithDetails | null>(
+    ['broadcast', broadcastId],
+    () => fetchBroadcastById(broadcastId)
+  );
+
+  const handleCancel = async () => {
+    if (!broadcast) return;
+    setIsProcessing(true);
+    try {
+      await cancelBroadcast(broadcast.id);
+      toast.success("Broadcast cancelled");
+      refetch();
+      onRefresh();
+      setShowCancelModal(false);
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRenotify = async () => {
+    if (!broadcast) return;
+    setIsProcessing(true);
+    try {
+      await renotifyDoulas(broadcast.id);
+      toast.success("Doulas re-notified");
+      refetch();
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+  }
+
+  if (error || !broadcast) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <AlertCircle size={48} color={PreggaColors.error500} style={{ marginBottom: 16 }} />
+        <h3 style={{ color: PreggaColors.neutral900, marginBottom: 8 }}>Broadcast not found</h3>
+        <Button onClick={onGoBack} style={{ marginTop: 16 }}>Go Back</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={onGoBack} style={{ background: "none", border: "none", cursor: "pointer", color: PreggaColors.neutral600, padding: 0, display: "flex" }}>
+          <ArrowLeft size={20} />
+        </button>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>Broadcast Request</h1>
+          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "4px 0 0" }}>View and manage this broadcast</p>
+        </div>
+      </div>
+
+      {/* Status Banner */}
+      <div
+        style={{
+          background: broadcast.status === 'accepted'
+            ? `linear-gradient(135deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)`
+            : broadcast.status === 'pending'
+            ? `linear-gradient(135deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`
+            : `linear-gradient(135deg, ${PreggaColors.neutral400} 0%, ${PreggaColors.neutral300} 100%)`,
+          borderRadius: 16,
+          padding: "24px 32px",
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr",
+          gap: 24,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Status</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white, textTransform: "capitalize" }}>{broadcast.status.replace('_', ' ')}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Notified</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white }}>{broadcast.notified_doulas?.length || 0} doulas</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Rejections</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white }}>{broadcast.rejections?.length || 0}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", marginBottom: 4 }}>Created</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.white }}>{formatTimeAgo(broadcast.created_at)}</div>
+        </div>
+      </div>
+
+      {/* Requesting User */}
+      <Card padding="20px">
+        <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
+          <User size={18} />
+          Requesting User
+        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
+            {(broadcast.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+          </div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.user?.display_name || "Unknown User"}</div>
+            <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.user?.email || broadcast.user?.phone || "No contact"}</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Initial Message */}
+      <Card padding="20px">
+        <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 12px" }}>Initial Message</h3>
+        <div style={{ padding: 16, background: PreggaColors.cream50, borderRadius: 8, fontSize: 14, color: PreggaColors.neutral700, lineHeight: 1.6 }}>
+          {broadcast.initial_message || "No message provided"}
+        </div>
+      </Card>
+
+      {/* Accepted Doula */}
+      {broadcast.accepted_doula && (
+        <Card padding="20px">
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
+            <Check size={18} color={PreggaColors.success500} />
+            Accepted Doula
+          </h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600 }}>
+              {(broadcast.accepted_doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900 }}>{broadcast.accepted_doula?.display_name || "Unknown Doula"}</div>
+              <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{broadcast.accepted_doula?.email || broadcast.accepted_doula?.phone || "No contact"}</div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Rejections */}
+      {broadcast.rejections && broadcast.rejections.length > 0 && (
+        <Card padding="20px">
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
+            <XCircle size={18} color={PreggaColors.error500} />
+            Rejections ({broadcast.rejections.length})
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {broadcast.rejections.map((rejection) => (
+              <div key={rejection.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 12, background: PreggaColors.neutral50, borderRadius: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.rose100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.rose600, fontSize: 12, fontWeight: 600 }}>
+                    {(rejection.doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <span style={{ fontWeight: 500 }}>{rejection.doula?.display_name || "Unknown Doula"}</span>
+                </div>
+                <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Admin Actions */}
+      {broadcast.status === 'pending' && (
+        <Card padding="20px">
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 16px" }}>Admin Actions</h3>
+          <div style={{ display: "flex", gap: 12 }}>
+            <Button onClick={handleRenotify} loading={isProcessing} icon={<Bell size={16} />}>
+              Re-notify Doulas
+            </Button>
+            <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+              <XCircle size={16} />
+              Cancel Broadcast
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Cancel Modal */}
+      <Modal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title=""
+        width={400}
+        footer={
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <Button variant="outline" onClick={() => setShowCancelModal(false)}>Keep Active</Button>
+            <Button onClick={handleCancel} loading={isProcessing} style={{ background: PreggaColors.error500 }}>Cancel Broadcast</Button>
+          </div>
+        }
+      >
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <XCircle size={28} color={PreggaColors.error500} />
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>Cancel this broadcast?</h3>
+          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: 0, lineHeight: 1.5 }}>
+            This will cancel the broadcast request. The user will need to create a new request to connect with a doula.
+          </p>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+export default BroadcastsView;

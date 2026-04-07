@@ -1,26 +1,40 @@
 import { useState, useEffect } from "react";
 import { PreggaColors } from "./theme/colors";
-import { useWindowSize, useNavigation, Section } from "./hooks";
+import { useWindowSize, useNavigation, Section, useRealtimeSync } from "./hooks";
 import { Sidebar, Header, SearchModal } from "./components/layout";
 import {
   DashboardView,
   UsersView,
   DoulasView,
   ChatView,
+  BroadcastsView,
+  WeeklyContentView,
+  SubscriptionsView,
+  AppConfigView,
+  SettingsView,
 } from "./components/views";
+import type { User } from "@supabase/supabase-js";
+import type { Profile } from "./types/database";
 
 interface PreggaAdminDashboardProps {
   onSignOut: () => void;
+  user: User;
+  profile: Profile;
 }
 
 const sectionTitles: Record<Section, string> = {
   Dashboard: "Dashboard",
-  Users: "User Management",
-  Doulas: "Doula Management",
-  "Chat Monitoring": "Chat Monitoring",
+  Users: "Users",
+  Doulas: "Doulas",
+  Conversations: "Conversations",
+  Broadcasts: "Broadcasts",
+  "Weekly Content": "Weekly Content",
+  Subscriptions: "Subscriptions",
+  "App Config": "App Configuration",
+  Settings: "Settings",
 };
 
-export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
+export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDashboardProps) {
   const { isMobile } = useWindowSize();
   const {
     section,
@@ -30,6 +44,8 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
     navigateToSubView,
     goBack,
   } = useNavigation();
+
+  useRealtimeSync();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -73,7 +89,12 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
         dashboard: "Dashboard",
         users: "Users",
         doulas: "Doulas",
-        chat: "Chat Monitoring",
+        conversations: "Conversations",
+        broadcasts: "Broadcasts",
+        content: "Weekly Content",
+        subscriptions: "Subscriptions",
+        config: "App Config",
+        settings: "Settings",
       };
       const targetSection = sectionMap[result.id];
       if (targetSection) {
@@ -84,11 +105,10 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
 
   const handleNavigateToSectionWithSubView = (targetSection: string, subViewId: string) => {
     const sectionMap: Record<string, Section> = {
-      "User Management": "Users",
-      "Doula Management": "Doulas",
+      "Users": "Users",
+      "Doulas": "Doulas",
     };
     const mappedSection = sectionMap[targetSection] || (targetSection as Section);
-    // Use navigate to set both section and subView at once
     navigate({ section: mappedSection, subView: subViewId });
   };
 
@@ -123,8 +143,42 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
             onNavigateToUserWithReturn={handleNavigateToUserWithReturn}
           />
         );
-      case "Chat Monitoring":
-        return <ChatView key={refreshKey} isMobile={isMobile} />;
+      case "Conversations":
+        return (
+          <ChatView
+            key={refreshKey}
+            isMobile={isMobile}
+            subView={subView}
+            onNavigateToSubView={navigateToSubView}
+            onGoBack={goBack}
+          />
+        );
+      case "Broadcasts":
+        return (
+          <BroadcastsView
+            key={refreshKey}
+            isMobile={isMobile}
+            subView={subView}
+            onNavigateToSubView={navigateToSubView}
+            onGoBack={goBack}
+          />
+        );
+      case "Weekly Content":
+        return <WeeklyContentView key={refreshKey} isMobile={isMobile} />;
+      case "Subscriptions":
+        return (
+          <SubscriptionsView
+            key={refreshKey}
+            isMobile={isMobile}
+            subView={subView}
+            onNavigateToSubView={navigateToSubView}
+            onGoBack={goBack}
+          />
+        );
+      case "App Config":
+        return <AppConfigView key={refreshKey} isMobile={isMobile} />;
+      case "Settings":
+        return <SettingsView key={refreshKey} isMobile={isMobile} user={user} profile={profile} />;
       default:
         return <DashboardView key={refreshKey} isMobile={isMobile} />;
     }
@@ -132,52 +186,6 @@ export function PreggaAdminDashboard({ onSignOut }: PreggaAdminDashboardProps) {
 
   return (
     <>
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes modalIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes pageIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .page-transition {
-          animation: pageIn 0.3s ease-out forwards;
-        }
-        *, *::before, *::after {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        html, body, #root {
-          height: 100%;
-          width: 100%;
-        }
-        body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-          background: ${PreggaColors.bgSecondary};
-          color: ${PreggaColors.neutral900};
-        }
-        ::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: ${PreggaColors.neutral200};
-          border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: ${PreggaColors.neutral300};
-        }
-      `}</style>
-
       <div
         style={{
           display: "flex",

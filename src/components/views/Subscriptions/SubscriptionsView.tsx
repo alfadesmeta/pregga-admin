@@ -1,0 +1,243 @@
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { useCountUp, useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
+import { PreggaColors } from "../../../theme/colors";
+import { Card } from "../../ui/Card";
+import { Button } from "../../ui/Button";
+import { Input } from "../../ui/Input";
+import { Badge, StatusBadge } from "../../ui/Badge";
+import { DataTable } from "../../ui/DataTable";
+import { Select } from "../../ui/Select";
+import { Modal } from "../../ui/Modal";
+import { fetchSubscriptions, fetchSubscriptionById, extendSubscription, cancelSubscription, type SubscriptionFilters } from "../../../lib/api";
+import { friendlyError } from "../../../lib/errors";
+import type { Subscription, Profile, SubscriptionPlan, SubscriptionStatus } from "../../../types/database";
+import { Search, CreditCard, Calendar, ArrowLeft, X, AlertCircle, Clock, XCircle, Check } from "lucide-react";
+
+interface SubscriptionsViewProps {
+  isMobile: boolean;
+  subView?: string;
+  onNavigateToSubView?: (subView: string) => void;
+  onGoBack?: () => void;
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getPlanLabel(plan: SubscriptionPlan): string {
+  const labels: Record<SubscriptionPlan, string> = {
+    monthly: "Monthly",
+    pregnancy_postpartum: "Pregnancy + Postpartum",
+    yearly: "Yearly",
+  };
+  return labels[plan] || plan;
+}
+
+export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGoBack }: SubscriptionsViewProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState<SubscriptionFilters>({});
+
+  const { data: subscriptions, count, isLoading, error, page, pageSize, totalPages, setPage, refetch } = useSupabasePaginatedQuery<Subscription & { user: Profile }>(
+    ['subscriptions', JSON.stringify(filters), searchQuery],
+    (from, to) => fetchSubscriptions(from, to, { ...filters, search: searchQuery || undefined }),
+    { pageSize: 10 }
+  );
+
+  const activeCount = subscriptions.filter(s => s.status === 'active').length;
+  const trialCount = subscriptions.filter(s => s.status === 'trial').length;
+  const cancelledCount = subscriptions.filter(s => s.status === 'cancelled').length;
+
+  const handleSelectSubscription = (id: string) => {
+    if (onNavigateToSubView) {
+      onNavigateToSubView(id);
+    }
+  };
+
+  const handleGoBack = () => {
+    if (onGoBack) {
+      onGoBack();
+    }
+  };
+
+  if (subView) {
+    return <SubscriptionDetailView subscriptionId={subView} onGoBack={handleGoBack} onRefresh={refetch} isMobile={isMobile} />;
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <AlertCircle size={48} color={PreggaColors.error500} style={{ marginBottom: 16 }} />
+        <h3 style={{ color: PreggaColors.neutral900, marginBottom: 8 }}>Failed to load subscriptions</h3>
+        <Button onClick={refetch} style={{ marginTop: 16 }}>Try Again</Button>
+      </div>
+    );
+  }
+
+  const columns = [
+    {
+      key: "user",
+      label: "User",
+      render: (_: unknown, sub: Subscription & { user: Profile }) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary500, fontSize: 13, fontWeight: 600 }}>
+            {(sub.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, color: PreggaColors.neutral900, fontSize: 14 }}>{sub.user?.display_name || "Unknown"}</div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{sub.user?.email || sub.user?.phone || "No contact"}</div>
+          </div>
+        </div>
+      ),
+    },
+    { key: "plan", label: "Plan", render: (_: unknown, sub: Subscription & { user: Profile }) => <Badge variant="sage">{getPlanLabel(sub.plan)}</Badge> },
+    { key: "status", label: "Status", render: (_: unknown, sub: Subscription & { user: Profile }) => <StatusBadge status={sub.status} /> },
+    { key: "starts_at", label: "Start Date", render: (_: unknown, sub: Subscription & { user: Profile }) => <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{formatDate(sub.starts_at)}</span> },
+    { key: "ends_at", label: "End Date", render: (_: unknown, sub: Subscription & { user: Profile }) => <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{sub.ends_at ? formatDate(sub.ends_at) : "Ongoing"}</span> },
+    { key: "actions", label: "", render: (_: unknown, sub: Subscription & { user: Profile }) => <Button variant="outline" size="sm" onClick={() => handleSelectSubscription(sub.id)}>View</Button> },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+        <StatCard label="Total" value={count} icon={<CreditCard size={18} />} color={PreggaColors.sage500} delay={0} />
+        <StatCard label="Active" value={activeCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={100} />
+        <StatCard label="Trial" value={trialCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={200} />
+        <StatCard label="Cancelled" value={cancelledCount} icon={<XCircle size={18} />} color={PreggaColors.error500} delay={300} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ width: isMobile ? "100%" : 280 }}>
+          <Input placeholder="Search by user..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search size={16} />} showClear onClear={() => setSearchQuery("")} />
+        </div>
+        <div style={{ width: 150 }}>
+          <Select value={filters.plan || ""} onChange={(v) => setFilters({ ...filters, plan: v as SubscriptionPlan || undefined })} options={[{ value: "", label: "All Plans" }, { value: "monthly", label: "Monthly" }, { value: "pregnancy_postpartum", label: "Pregnancy + Postpartum" }, { value: "yearly", label: "Yearly" }]} />
+        </div>
+        <div style={{ width: 130 }}>
+          <Select value={filters.status || ""} onChange={(v) => setFilters({ ...filters, status: v as SubscriptionStatus || undefined })} options={[{ value: "", label: "All Status" }, { value: "active", label: "Active" }, { value: "trial", label: "Trial" }, { value: "cancelled", label: "Cancelled" }, { value: "expired", label: "Expired" }]} />
+        </div>
+        {(searchQuery || filters.plan || filters.status) && (
+          <button onClick={() => { setSearchQuery(""); setFilters({}); }} style={{ display: "flex", alignItems: "center", gap: 6, height: 42, padding: "0 14px", borderRadius: 8, border: `1px solid ${PreggaColors.neutral200}`, background: PreggaColors.white, color: PreggaColors.neutral700, fontSize: 14, cursor: "pointer" }}>
+            <X size={14} /> Clear
+          </button>
+        )}
+      </div>
+
+      <DataTable columns={columns} data={subscriptions} currentPage={page} totalPages={totalPages} totalItems={count} pageSize={pageSize} onPageChange={setPage} emptyMessage="No subscriptions found" isMobile={isMobile} isLoading={isLoading} mobileCardRender={(sub: Subscription & { user: Profile }) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }} onClick={() => handleSelectSubscription(sub.id)}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontWeight: 600, fontSize: 14 }}>
+                {(sub.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+              </div>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>{sub.user?.display_name || "Unknown"}</div>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{getPlanLabel(sub.plan)}</div>
+              </div>
+            </div>
+            <StatusBadge status={sub.status} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: PreggaColors.neutral500 }}>
+            <span>Start: {formatDate(sub.starts_at)}</span>
+            <span>End: {sub.ends_at ? formatDate(sub.ends_at) : "Ongoing"}</span>
+          </div>
+        </div>
+      )} />
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon, color, delay = 0 }: { label: string; value: number; icon: React.ReactNode; color: string; delay?: number }) {
+  const animatedValue = useCountUp(value, 1500, delay);
+  return (
+    <div style={{ background: PreggaColors.white, borderRadius: 12, padding: "16px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{label}</span>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", color }}>{icon}</div>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: PreggaColors.neutral900 }}>{animatedValue}</div>
+    </div>
+  );
+}
+
+function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile }: { subscriptionId: string; onGoBack: () => void; onRefresh: () => void; isMobile: boolean }) {
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [extendDate, setExtendDate] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const { data: subscription, isLoading, error, refetch } = useSupabaseQuery<(Subscription & { user: Profile }) | null>(
+    ['subscription', subscriptionId],
+    () => fetchSubscriptionById(subscriptionId)
+  );
+
+  const handleExtend = async () => {
+    if (!subscription || !extendDate) return;
+    setIsProcessing(true);
+    try {
+      await extendSubscription(subscription.id, extendDate);
+      toast.success("Subscription extended");
+      refetch(); onRefresh(); setShowExtendModal(false);
+    } catch (err) { toast.error(friendlyError(err)); } finally { setIsProcessing(false); }
+  };
+
+  const handleCancel = async () => {
+    if (!subscription) return;
+    setIsProcessing(true);
+    try {
+      await cancelSubscription(subscription.id);
+      toast.success("Subscription cancelled");
+      refetch(); onRefresh(); setShowCancelModal(false);
+    } catch (err) { toast.error(friendlyError(err)); } finally { setIsProcessing(false); }
+  };
+
+  if (isLoading) return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+  if (error || !subscription) return <div style={{ padding: 40, textAlign: "center" }}><AlertCircle size={48} color={PreggaColors.error500} /><h3>Subscription not found</h3><Button onClick={onGoBack}>Go Back</Button></div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={onGoBack} style={{ background: "none", border: "none", cursor: "pointer", color: PreggaColors.neutral600 }}><ArrowLeft size={20} /></button>
+        <div><h1 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>Subscription Details</h1></div>
+      </div>
+
+      <Card padding="20px">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontSize: 18, fontWeight: 600 }}>
+            {(subscription.user?.display_name || "U").split(" ").map(n => n[0]).join("").slice(0, 2)}
+          </div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 600 }}>{subscription.user?.display_name || "Unknown"}</div>
+            <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{subscription.user?.email || subscription.user?.phone}</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Plan</div><div style={{ fontSize: 16, fontWeight: 600 }}>{getPlanLabel(subscription.plan)}</div></div>
+          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Status</div><div style={{ marginTop: 4 }}><StatusBadge status={subscription.status} /></div></div>
+          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>Start Date</div><div style={{ fontSize: 16, fontWeight: 600 }}>{formatDate(subscription.starts_at)}</div></div>
+          <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 8 }}><div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>End Date</div><div style={{ fontSize: 16, fontWeight: 600 }}>{subscription.ends_at ? formatDate(subscription.ends_at) : "Ongoing"}</div></div>
+        </div>
+      </Card>
+
+      {subscription.status === 'active' && (
+        <Card padding="20px">
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Admin Actions</h3>
+          <div style={{ display: "flex", gap: 12 }}>
+            <Button icon={<Calendar size={16} />} onClick={() => setShowExtendModal(true)}>Extend Subscription</Button>
+            <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}><XCircle size={16} />Cancel</Button>
+          </div>
+        </Card>
+      )}
+
+      <Modal open={showExtendModal} onClose={() => setShowExtendModal(false)} title="Extend Subscription" width={400} footer={<div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}><Button variant="outline" onClick={() => setShowExtendModal(false)}>Cancel</Button><Button onClick={handleExtend} loading={isProcessing}>Extend</Button></div>}>
+        <Input label="New End Date" type="date" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} required />
+      </Modal>
+
+      <Modal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="" width={400} footer={<div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}><Button variant="outline" onClick={() => setShowCancelModal(false)}>Keep Active</Button><Button onClick={handleCancel} loading={isProcessing} style={{ background: PreggaColors.error500 }}>Cancel Subscription</Button></div>}>
+        <div style={{ textAlign: "center" }}><div style={{ width: 64, height: 64, borderRadius: "50%", background: PreggaColors.error50, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><XCircle size={28} color={PreggaColors.error500} /></div><h3 style={{ fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>Cancel subscription?</h3><p style={{ fontSize: 14, color: PreggaColors.neutral500 }}>This will immediately cancel the user's subscription.</p></div>
+      </Modal>
+    </div>
+  );
+}
+
+export default SubscriptionsView;

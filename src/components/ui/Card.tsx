@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { PreggaColors } from "../../theme/colors";
+import { PreggaColors, PreggaShadows, PreggaTransitions } from "../../theme/colors";
 import { AnimNum } from "./AnimNum";
 
 interface CardProps {
@@ -10,10 +10,23 @@ interface CardProps {
   style?: React.CSSProperties;
   padding?: string | number;
   delay?: number;
+  hoverable?: boolean;
+  onClick?: () => void;
 }
 
-export function Card({ children, title, subtitle, action, style, padding = "20px", delay = 0 }: CardProps) {
+export function Card({
+  children,
+  title,
+  subtitle,
+  action,
+  style,
+  padding = "20px",
+  delay = 0,
+  hoverable = false,
+  onClick,
+}: CardProps) {
   const [visible, setVisible] = useState(delay === 0);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (delay > 0) {
@@ -24,14 +37,23 @@ export function Card({ children, title, subtitle, action, style, padding = "20px
 
   return (
     <div
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         background: PreggaColors.white,
-        borderRadius: 16,
-        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
+        borderRadius: 12,
+        border: `1px solid ${PreggaColors.neutral100}`,
+        boxShadow: isHovered && hoverable ? PreggaShadows.md : PreggaShadows.sm,
         overflow: "hidden",
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(12px)",
-        transition: "all 0.5s cubic-bezier(.16,1,.3,1)",
+        transform: visible
+          ? isHovered && hoverable
+            ? "translateY(-2px)"
+            : "translateY(0)"
+          : "translateY(8px)",
+        transition: PreggaTransitions.smooth,
+        cursor: onClick || hoverable ? "pointer" : "default",
         ...style,
       }}
     >
@@ -43,17 +65,19 @@ export function Card({ children, title, subtitle, action, style, padding = "20px
             justifyContent: "space-between",
             padding: "16px 20px",
             borderBottom: `1px solid ${PreggaColors.neutral100}`,
+            background: PreggaColors.neutral50,
           }}
         >
           <div>
             {title && (
               <h3
                 style={{
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: 600,
                   color: PreggaColors.neutral900,
                   margin: 0,
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: "'Inter', -apple-system, sans-serif",
+                  letterSpacing: "-0.01em",
                 }}
               >
                 {title}
@@ -64,7 +88,8 @@ export function Card({ children, title, subtitle, action, style, padding = "20px
                 style={{
                   fontSize: 13,
                   color: PreggaColors.neutral500,
-                  margin: "4px 0 0",
+                  margin: "2px 0 0",
+                  fontFamily: "'Inter', -apple-system, sans-serif",
                 }}
               >
                 {subtitle}
@@ -74,7 +99,7 @@ export function Card({ children, title, subtitle, action, style, padding = "20px
           {action}
         </div>
       )}
-      <div style={{ padding: title || action ? padding : padding }}>{children}</div>
+      <div style={{ padding }}>{children}</div>
     </div>
   );
 }
@@ -91,7 +116,7 @@ interface KPICardProps {
   iconColor?: string;
   iconBg?: string;
   delay?: number;
-  trend?: "up" | "down";
+  trend?: "up" | "down" | "neutral";
   trendValue?: string;
 }
 
@@ -106,9 +131,11 @@ export function KPICard({
   iconColor,
   iconBg,
   delay = 0,
+  trend,
   trendValue,
 }: KPICardProps) {
   const [visible, setVisible] = useState(delay === 0);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (delay > 0) {
@@ -117,81 +144,114 @@ export function KPICard({
     }
   }, [delay]);
 
+  const trendColor = trend === "up" ? PreggaColors.success600 : trend === "down" ? PreggaColors.error600 : PreggaColors.neutral500;
+
   return (
     <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         background: PreggaColors.white,
-        borderRadius: 16,
-        boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.1)",
-        padding: "24px",
+        borderRadius: 12,
+        border: `1px solid ${PreggaColors.neutral100}`,
+        boxShadow: isHovered ? PreggaShadows.md : PreggaShadows.sm,
+        padding: "20px",
         opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(12px)",
-        transition: "all 0.5s cubic-bezier(.16,1,.3,1)",
+        transform: visible ? (isHovered ? "translateY(-2px)" : "translateY(0)") : "translateY(8px)",
+        transition: PreggaTransitions.smooth,
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      {/* Icon in top right */}
       <div
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 16,
-          background: iconBg || PreggaColors.primary50,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: iconColor || PreggaColors.primary500,
-          marginBottom: 16,
+          position: "absolute",
+          top: 0,
+          right: 0,
+          width: 120,
+          height: 120,
+          background: iconBg || PreggaColors.accent50,
+          borderRadius: "0 0 0 100%",
+          opacity: 0.5,
+          transform: "translate(30%, -30%)",
         }}
-      >
-        {icon}
-      </div>
+      />
       
-      {/* Title */}
-      <div 
-        style={{ 
-          fontSize: 14, 
-          fontWeight: 500,
-          color: PreggaColors.neutral700, 
-          fontFamily: "'Inter', sans-serif",
-          marginBottom: 4,
-        }}
-      >
-        {title}
-      </div>
-      
-      {/* Value */}
-      <div
-        style={{
-          fontSize: 30,
-          fontWeight: 500,
-          color: PreggaColors.neutral900,
-          lineHeight: 1.2,
-          marginBottom: 4,
-          fontFamily: "'Inter', sans-serif",
-        }}
-      >
-        {prefix}
-        {visible ? <AnimNum value={value} duration={1200} /> : 0}
-        {suffix}
-      </div>
-      
-      {/* Subtitle */}
-      {(subtitle || trendValue) && (
-        <div 
-          style={{ 
-            fontSize: 14, 
-            fontWeight: 500,
-            color: subtitleColor || PreggaColors.neutral600,
+      <div style={{ position: "relative" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            marginBottom: 12,
           }}
         >
-          {trendValue && (
-            <span style={{ marginRight: 4 }}>
-              {trendValue}
-            </span>
-          )}
-          {subtitle}
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              background: iconBg || PreggaColors.accent50,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: iconColor || PreggaColors.accent600,
+            }}
+          >
+            {icon}
+          </div>
         </div>
-      )}
+
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: PreggaColors.neutral500,
+            fontFamily: "'Inter', -apple-system, sans-serif",
+            marginBottom: 4,
+          }}
+        >
+          {title}
+        </div>
+
+        <div
+          style={{
+            fontSize: 28,
+            fontWeight: 600,
+            color: PreggaColors.neutral900,
+            lineHeight: 1.1,
+            fontFamily: "'Inter', -apple-system, sans-serif",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {prefix}
+          {visible ? <AnimNum value={value} duration={1200} /> : 0}
+          {suffix}
+        </div>
+
+        {(subtitle || trendValue) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              marginTop: 8,
+              fontSize: 13,
+              fontWeight: 500,
+              color: subtitleColor || PreggaColors.neutral500,
+            }}
+          >
+            {trendValue && (
+              <span style={{ color: trendColor, display: "flex", alignItems: "center", gap: 2 }}>
+                {trend === "up" && "↑"}
+                {trend === "down" && "↓"}
+                {trendValue}
+              </span>
+            )}
+            {subtitle}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

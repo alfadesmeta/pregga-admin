@@ -1,59 +1,160 @@
 import { useState, useEffect } from "react";
+import { Toaster } from "react-hot-toast";
 import { LoginPage } from "./components/auth";
 import { PreggaAdminDashboard } from "./PreggaAdminDashboard";
+import { supabase } from "./lib/supabase";
+import { friendlyError } from "./lib/errors";
+import type { User, Session } from "@supabase/supabase-js";
+import type { Profile } from "./types/database";
 
-const AUTH_KEY = "pregga_auth";
+interface AuthState {
+  user: User | null;
+  profile: Profile | null;
+  isLoading: boolean;
+}
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    profile: null,
+    isLoading: true,
+  });
 
   useEffect(() => {
-    const authStatus = localStorage.getItem(AUTH_KEY);
-    setIsAuthenticated(authStatus === "true");
+    let mounted = true;
+
+    async function checkSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (!session?.user) {
+          setAuthState({ user: null, profile: null, isLoading: false });
+          return;
+        }
+        
+        const profile = await fetchProfile(session.user.id);
+        
+        if (!mounted) return;
+        
+        if (profile?.user_role === 'admin') {
+          setAuthState({ user: session.user, profile, isLoading: false });
+        } else {
+          await supabase.auth.signOut();
+          setAuthState({ user: null, profile: null, isLoading: false });
+        }
+      } catch (err) {
+        console.error('Session check error:', err);
+        if (mounted) setAuthState({ user: null, profile: null, isLoading: false });
+      }
+    }
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event: string) => {
+        if (event === 'SIGNED_OUT') {
+          if (mounted) setAuthState({ user: null, profile: null, isLoading: false });
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const handleLogin = (email: string, _password: string) => {
-    console.log("Login attempt:", email);
-    localStorage.setItem(AUTH_KEY, "true");
-    setIsAuthenticated(true);
-  };
+  async function fetchProfile(userId: string): Promise<Profile | null> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-  const handleSignOut = () => {
-    localStorage.removeItem(AUTH_KEY);
-    setIsAuthenticated(false);
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      return null;
+    }
+  }
+
+  async function handleLogin(email: string, password: string): Promise<{ error?: string }> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) return { error: friendlyError(error) };
+      if (!data.user) return { error: 'Authentication failed. Please try again.' };
+
+      const profile = await fetchProfile(data.user.id);
+
+      if (!profile || profile.user_role !== 'admin') {
+        await supabase.auth.signOut();
+        return { error: 'Admin access required. Please contact your administrator.' };
+      }
+
+      setAuthState({ user: data.user, profile, isLoading: false });
+      return {};
+    } catch (error) {
+      return { error: friendlyError(error) };
+    }
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setAuthState({ user: null, profile: null, isLoading: false });
     window.location.hash = "";
-  };
+  }
 
-  if (isAuthenticated === null) {
+  if (authState.isLoading) {
     return (
-      <div
-        style={{
-          height: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#F5F1EB",
-        }}
-      >
+      <div style={{ height: "100%", width: "100%", background: "#F8F6F3" }}>
+        <Toaster position="top-right" />
         <div
           style={{
-            width: 40,
-            height: 40,
-            border: "3px solid #E8DFD2",
-            borderTopColor: "#8B7355",
-            borderRadius: "50%",
-            animation: "spin 0.8s linear infinite",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
-        />
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              border: "3px solid #E8DFD2",
+              borderTopColor: "#6B7B5F",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+        </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (!authState.user || !authState.profile) {
+    return (
+      <div style={{ height: "100%", width: "100%" }}>
+        <Toaster position="top-right" />
+        <LoginPage onLogin={handleLogin} />
+      </div>
+    );
   }
 
-  return <PreggaAdminDashboard onSignOut={handleSignOut} />;
+  return (
+    <div style={{ height: "100%", width: "100%" }}>
+      <Toaster position="top-right" />
+      <PreggaAdminDashboard 
+        onSignOut={handleSignOut} 
+        user={authState.user}
+        profile={authState.profile}
+      />
+    </div>
+  );
 }
 
 export default App;

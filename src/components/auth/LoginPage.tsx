@@ -1,23 +1,20 @@
 import React, { useState } from "react";
-import { PreggaColors, PreggaShadows, PreggaGradients } from "../../theme/colors";
+import { PreggaColors, PreggaShadows, PreggaGradients, PreggaTransitions } from "../../theme/colors";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
-import { Baby, Eye, EyeOff, ArrowLeft, Mail, Lock, CheckCircle } from "lucide-react";
-
-type AuthView = "login" | "forgot" | "email-sent";
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
+import logoImg from "../../assets/logo.png";
 
 interface LoginPageProps {
-  onLogin: (email: string, password: string) => void;
+  onLogin: (email: string, password: string) => Promise<{ error?: string }>;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [view, setView] = useState<AuthView>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [resetEmail, setResetEmail] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -47,72 +44,98 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true);
     setErrors({});
 
-    setTimeout(() => {
-      onLogin(email, password);
-      setLoading(false);
-    }, 1000);
+    const result = await onLogin(email, password);
+    
+    setLoading(false);
+    
+    if (result.error) {
+      setErrors({ general: result.error });
+    }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetEmail || !validateEmail(resetEmail)) {
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setView("email-sent");
-    }, 1000);
-  };
+  const inputStyle = (field: string, hasError?: boolean): React.CSSProperties => ({
+    width: "100%",
+    height: 48,
+    padding: "12px 16px",
+    paddingLeft: 44,
+    paddingRight: field === "password" ? 48 : 16,
+    borderRadius: 10,
+    border: `1px solid ${hasError ? PreggaColors.error400 : focusedField === field ? PreggaColors.accent400 : PreggaColors.neutral200}`,
+    fontSize: 15,
+    fontFamily: "'Inter', -apple-system, sans-serif",
+    outline: "none",
+    transition: PreggaTransitions.normal,
+    boxSizing: "border-box" as const,
+    color: PreggaColors.neutral900,
+    background: PreggaColors.white,
+    boxShadow: focusedField === field
+      ? hasError
+        ? PreggaShadows.focusError
+        : PreggaShadows.focus
+      : "none",
+  });
+
+  const iconStyle = (field: string): React.CSSProperties => ({
+    position: "absolute",
+    left: 14,
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: focusedField === field ? PreggaColors.accent500 : PreggaColors.neutral400,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+    transition: PreggaTransitions.fast,
+  });
 
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100%",
+        height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         background: PreggaGradients.heroGradient,
         fontFamily: "'Inter', sans-serif",
-        padding: 20,
+        padding: "20px",
+        boxSizing: "border-box",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: 420,
+          maxWidth: 400,
           background: PreggaColors.white,
-          borderRadius: 20,
+          borderRadius: 16,
           boxShadow: PreggaShadows.lg,
           overflow: "hidden",
+          margin: "auto",
         }}
       >
         {/* Header */}
         <div
           style={{
-            padding: "32px 32px 24px",
+            padding: "28px 24px 20px",
             textAlign: "center",
             borderBottom: `1px solid ${PreggaColors.primary100}`,
           }}
         >
           <div
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 14,
-              background: PreggaColors.terracotta500,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 16px",
-              color: PreggaColors.white,
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              overflow: "hidden",
+              margin: "0 auto 14px",
+              boxShadow: PreggaShadows.sm,
             }}
           >
-            <Baby size={28} />
+            <img src={logoImg} alt="Pregga" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
           <h1
             style={{
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: 600,
               color: PreggaColors.neutral900,
               margin: 0,
@@ -125,36 +148,92 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             style={{
               fontSize: 14,
               color: PreggaColors.neutral500,
-              margin: "8px 0 0",
+              margin: "6px 0 0",
             }}
           >
-            {view === "login" && "Sign in to manage your platform"}
-            {view === "forgot" && "Reset your password"}
-            {view === "email-sent" && "Check your inbox"}
+            Sign in to manage your platform
           </p>
         </div>
 
         {/* Content */}
-        <div style={{ padding: 32 }}>
-          {view === "login" && (
-            <form onSubmit={handleLogin}>
-              <Input
-                label="Email Address"
-                type="email"
-                placeholder="admin@pregga.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) setErrors({ ...errors, email: undefined });
+        <div style={{ padding: "24px" }}>
+          <form onSubmit={handleLogin}>
+            {errors.general && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "12px 14px",
+                  background: PreggaColors.error50,
+                  borderRadius: 10,
+                  marginBottom: 16,
+                  border: `1px solid ${PreggaColors.error200}`,
                 }}
-                error={errors.email}
-                icon={<Mail size={16} />}
-                required
-              />
+              >
+                <AlertCircle size={18} color={PreggaColors.error600} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: PreggaColors.error700 }}>
+                  {errors.general}
+                </span>
+              </div>
+            )}
 
+            {/* Email Field */}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: PreggaColors.neutral700,
+                  marginBottom: 6,
+                }}
+              >
+                Email Address
+              </label>
               <div style={{ position: "relative" }}>
-                <Input
-                  label="Password"
+                <div style={iconStyle("email")}>
+                  <Mail size={18} />
+                </div>
+                <input
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email) setErrors({ ...errors, email: undefined });
+                  }}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  style={inputStyle("email", !!errors.email)}
+                  required
+                />
+              </div>
+              {errors.email && (
+                <div style={{ fontSize: 12, color: PreggaColors.error600, marginTop: 6 }}>
+                  {errors.email}
+                </div>
+              )}
+            </div>
+
+            {/* Password Field */}
+            <div style={{ marginBottom: 24 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: PreggaColors.neutral700,
+                  marginBottom: 6,
+                }}
+              >
+                Password
+              </label>
+              <div style={{ position: "relative" }}>
+                <div style={iconStyle("password")}>
+                  <Lock size={18} />
+                </div>
+                <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
@@ -162,8 +241,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     setPassword(e.target.value);
                     if (errors.password) setErrors({ ...errors, password: undefined });
                   }}
-                  error={errors.password}
-                  icon={<Lock size={16} />}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  style={inputStyle("password", !!errors.password)}
                   required
                 />
                 <button
@@ -171,165 +251,53 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
                     position: "absolute",
-                    right: 14,
-                    top: 36,
+                    right: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
                     color: PreggaColors.neutral400,
                     padding: 4,
                     display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: PreggaTransitions.fast,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = PreggaColors.neutral600;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = PreggaColors.neutral400;
                   }}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginBottom: 20,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setView("forgot")}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: PreggaColors.primary600,
-                    fontSize: 13,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    fontWeight: 500,
-                  }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              <Button type="submit" fullWidth loading={loading} size="lg">
-                Sign In
-              </Button>
-            </form>
-          )}
-
-          {view === "forgot" && (
-            <form onSubmit={handleForgotPassword}>
-              <button
-                type="button"
-                onClick={() => setView("login")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "none",
-                  border: "none",
-                  color: PreggaColors.neutral600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  marginBottom: 20,
-                  padding: 0,
-                }}
-              >
-                <ArrowLeft size={16} />
-                Back to sign in
-              </button>
-
-              <Input
-                label="Email Address"
-                type="email"
-                placeholder="Enter your email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                icon={<Mail size={16} />}
-                required
-              />
-
-              <p
-                style={{
-                  fontSize: 13,
-                  color: PreggaColors.neutral500,
-                  marginBottom: 20,
-                }}
-              >
-                We'll send you a link to reset your password.
-              </p>
-
-              <Button type="submit" fullWidth loading={loading} size="lg">
-                Send Reset Link
-              </Button>
-            </form>
-          )}
-
-          {view === "email-sent" && (
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  background: PreggaColors.success100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 20px",
-                  color: PreggaColors.success600,
-                }}
-              >
-                <CheckCircle size={32} />
-              </div>
-
-              <h3
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: PreggaColors.neutral900,
-                  margin: "0 0 8px",
-                }}
-              >
-                Email Sent!
-              </h3>
-
-              <p
-                style={{
-                  fontSize: 14,
-                  color: PreggaColors.neutral500,
-                  marginBottom: 24,
-                }}
-              >
-                We've sent a password reset link to{" "}
-                <strong style={{ color: PreggaColors.neutral700 }}>{resetEmail}</strong>
-              </p>
-
-              <Button
-                type="button"
-                variant="outline"
-                fullWidth
-                onClick={() => {
-                  setView("login");
-                  setResetEmail("");
-                }}
-              >
-                Return to Sign In
-              </Button>
+              {errors.password && (
+                <div style={{ fontSize: 12, color: PreggaColors.error600, marginTop: 6 }}>
+                  {errors.password}
+                </div>
+              )}
             </div>
-          )}
+
+            <Button type="submit" fullWidth loading={loading} size="lg">
+              Sign In
+            </Button>
+          </form>
         </div>
 
         {/* Footer */}
         <div
           style={{
-            padding: "16px 32px",
+            padding: "14px 24px",
             background: PreggaColors.cream50,
             borderTop: `1px solid ${PreggaColors.primary100}`,
             textAlign: "center",
           }}
         >
           <p style={{ fontSize: 12, color: PreggaColors.neutral500, margin: 0 }}>
-            © 2026 Pregga. All rights reserved.
+            © 2026 Pregga Health. All rights reserved.
           </p>
         </div>
       </div>

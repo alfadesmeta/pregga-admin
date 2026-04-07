@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { PreggaColors, PreggaShadows } from "../../theme/colors";
+import { PreggaColors, PreggaShadows, PreggaTransitions } from "../../theme/colors";
 import { Loader2 } from "lucide-react";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "accent" | "sage";
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "accent" | "sage" | "success";
+type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -25,16 +25,19 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
     },
     hover: {
       background: PreggaColors.accent600,
+      boxShadow: PreggaShadows.buttonHover,
+      transform: "translateY(-1px)",
     },
   },
   secondary: {
     base: {
-      background: PreggaColors.accent100,
-      color: PreggaColors.accent600,
-      border: "none",
+      background: PreggaColors.accent50,
+      color: PreggaColors.accent700,
+      border: `1px solid ${PreggaColors.accent200}`,
     },
     hover: {
-      background: "rgba(107, 123, 95, 0.15)",
+      background: PreggaColors.accent100,
+      borderColor: PreggaColors.accent300,
     },
   },
   outline: {
@@ -46,6 +49,7 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
     hover: {
       background: PreggaColors.neutral50,
       borderColor: PreggaColors.neutral300,
+      color: PreggaColors.neutral900,
     },
   },
   ghost: {
@@ -56,17 +60,20 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
     },
     hover: {
       background: PreggaColors.neutral100,
-      color: PreggaColors.neutral800,
+      color: PreggaColors.neutral900,
     },
   },
   danger: {
     base: {
-      background: PreggaColors.destructive600,
+      background: PreggaColors.error600,
       color: PreggaColors.white,
       border: "none",
+      boxShadow: "0 1px 3px rgba(220, 38, 38, 0.2)",
     },
     hover: {
-      background: PreggaColors.destructive700,
+      background: PreggaColors.error700,
+      boxShadow: "0 4px 6px rgba(220, 38, 38, 0.25)",
+      transform: "translateY(-1px)",
     },
   },
   accent: {
@@ -74,10 +81,12 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
       background: PreggaColors.terracotta500,
       color: PreggaColors.white,
       border: "none",
-      boxShadow: "0 2px 8px rgba(199, 93, 77, 0.25)",
+      boxShadow: "0 1px 3px rgba(199, 93, 77, 0.2)",
     },
     hover: {
       background: PreggaColors.terracotta600,
+      boxShadow: "0 4px 6px rgba(199, 93, 77, 0.25)",
+      transform: "translateY(-1px)",
     },
   },
   sage: {
@@ -85,18 +94,34 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
       background: PreggaColors.sage500,
       color: PreggaColors.white,
       border: "none",
-      boxShadow: "0 2px 8px rgba(107, 127, 108, 0.25)",
+      boxShadow: "0 1px 3px rgba(107, 127, 108, 0.2)",
     },
     hover: {
       background: PreggaColors.sage600,
+      boxShadow: "0 4px 6px rgba(107, 127, 108, 0.25)",
+      transform: "translateY(-1px)",
+    },
+  },
+  success: {
+    base: {
+      background: PreggaColors.success600,
+      color: PreggaColors.white,
+      border: "none",
+      boxShadow: "0 1px 3px rgba(22, 163, 74, 0.2)",
+    },
+    hover: {
+      background: PreggaColors.success700,
+      boxShadow: "0 4px 6px rgba(22, 163, 74, 0.25)",
+      transform: "translateY(-1px)",
     },
   },
 };
 
 const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
-  sm: { padding: "6px 12px", fontSize: 13, borderRadius: 6 },
-  md: { padding: "10px 18px", fontSize: 14, borderRadius: 8 },
-  lg: { padding: "14px 24px", fontSize: 15, borderRadius: 10 },
+  xs: { padding: "4px 8px", fontSize: 12, borderRadius: 6, gap: 4 },
+  sm: { padding: "6px 12px", fontSize: 13, borderRadius: 6, gap: 6 },
+  md: { padding: "10px 16px", fontSize: 14, borderRadius: 8, gap: 8 },
+  lg: { padding: "12px 20px", fontSize: 15, borderRadius: 10, gap: 8 },
 };
 
 export function Button({
@@ -112,6 +137,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
 
   const variantStyle = variantStyles[variant];
   const sizeStyle = sizeStyles[size];
@@ -120,16 +146,18 @@ export function Button({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
     fontWeight: 500,
     cursor: disabled || loading ? "not-allowed" : "pointer",
-    opacity: disabled || loading ? 0.6 : 1,
-    transition: "all 0.15s ease",
+    opacity: disabled ? 0.5 : loading ? 0.8 : 1,
+    transition: PreggaTransitions.smooth,
     width: fullWidth ? "100%" : "auto",
+    whiteSpace: "nowrap",
+    userSelect: "none",
     ...sizeStyle,
     ...variantStyle.base,
     ...(isHovered && !disabled && !loading ? variantStyle.hover : {}),
+    ...(isPressed && !disabled && !loading ? { transform: "translateY(0)", opacity: 0.9 } : {}),
     ...style,
   };
 
@@ -139,9 +167,19 @@ export function Button({
       disabled={disabled || loading}
       style={combinedStyle}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setIsPressed(false);
+      }}
+      onMouseDown={() => setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
     >
-      {loading && <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite" }} />}
+      {loading && (
+        <Loader2
+          size={size === "xs" ? 12 : size === "sm" ? 14 : 16}
+          style={{ animation: "spin 0.7s linear infinite" }}
+        />
+      )}
       {!loading && icon && iconPosition === "left" && icon}
       {children}
       {!loading && icon && iconPosition === "right" && icon}
