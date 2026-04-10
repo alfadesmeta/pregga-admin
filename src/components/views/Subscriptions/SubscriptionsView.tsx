@@ -13,7 +13,7 @@ import { ShimmerKPICard } from "../../ui/Shimmer";
 import { fetchSubscriptions, fetchSubscriptionById, extendSubscription, cancelSubscription, type SubscriptionFilters } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
 import type { Subscription, Profile, SubscriptionPlan, SubscriptionStatus } from "../../../types/database";
-import { Search, CreditCard, Calendar, X, AlertCircle, Clock, XCircle, Check, User, Settings } from "lucide-react";
+import { Search, CreditCard, Calendar, X, AlertCircle, Clock, XCircle, Check, User, Settings, Copy } from "lucide-react";
 import { DetailHeader, TabSelector, Tab } from "../../ui";
 
 interface SubscriptionsViewProps {
@@ -36,6 +36,49 @@ function getPlanLabel(plan: SubscriptionPlan | null | undefined): string {
     six_months: "6 Months",
   };
   return labels[plan] || plan.replace('_', ' ');
+}
+
+function CopyableId({ id }: { id: string }) {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    toast.success("ID copied to clipboard");
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: "monospace", fontSize: 12, color: PreggaColors.neutral500 }}>
+        {id.slice(0, 8)}...
+      </span>
+      <button
+        onClick={handleCopy}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 24,
+          height: 24,
+          borderRadius: 4,
+          border: "none",
+          background: "transparent",
+          color: PreggaColors.neutral400,
+          cursor: "pointer",
+          transition: "all 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = PreggaColors.neutral100;
+          e.currentTarget.style.color = PreggaColors.neutral600;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = PreggaColors.neutral400;
+        }}
+        title="Copy ID"
+      >
+        <Copy size={14} />
+      </button>
+    </div>
+  );
 }
 
 export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGoBack }: SubscriptionsViewProps) {
@@ -79,6 +122,11 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
   }
 
   const columns = [
+    {
+      key: "id",
+      label: "Sub ID",
+      render: (_: unknown, sub: Subscription & { user: Profile }) => <CopyableId id={sub.id} />,
+    },
     {
       key: "user",
       label: "User",

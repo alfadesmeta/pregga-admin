@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   Shield,
   CheckCheck,
+  Copy,
 } from "lucide-react";
 
 interface ChatViewProps {
@@ -51,6 +52,49 @@ function parseSubView(subView?: string): ChatSubView {
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function CopyableId({ id }: { id: string }) {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    toast.success("ID copied to clipboard");
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: "monospace", fontSize: 12, color: PreggaColors.neutral500 }}>
+        {id.slice(0, 8)}...
+      </span>
+      <button
+        onClick={handleCopy}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 24,
+          height: 24,
+          borderRadius: 4,
+          border: "none",
+          background: "transparent",
+          color: PreggaColors.neutral400,
+          cursor: "pointer",
+          transition: "all 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = PreggaColors.neutral100;
+          e.currentTarget.style.color = PreggaColors.neutral600;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = PreggaColors.neutral400;
+        }}
+        title="Copy ID"
+      >
+        <Copy size={14} />
+      </button>
+    </div>
+  );
 }
 
 export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: ChatViewProps) {
@@ -333,6 +377,7 @@ function ConversationListItem({
           <span style={{ fontSize: 14, fontWeight: 600, color: PreggaColors.neutral900 }}>
             {conversation.pregnant_user?.display_name || "Unknown User"}
           </span>
+          {!isMobile && <CopyableId id={conversation.id} />}
         </div>
         <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 2 }}>
           {conversation.pregnant_user?.phone ? "TTC" : "Pregnant"} • with {conversation.doula?.display_name || "Unknown Doula"}

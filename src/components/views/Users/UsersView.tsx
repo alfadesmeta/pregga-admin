@@ -34,6 +34,7 @@ import {
   User,
   CreditCard,
   AlertCircle,
+  Copy,
 } from "lucide-react";
 import { TabSelector, Tab } from "../../ui";
 
@@ -51,6 +52,49 @@ function formatDate(dateStr: string): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function CopyableId({ id }: { id: string }) {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    toast.success("ID copied to clipboard");
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: "monospace", fontSize: 12, color: PreggaColors.neutral500 }}>
+        {id.slice(0, 8)}...
+      </span>
+      <button
+        onClick={handleCopy}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 24,
+          height: 24,
+          borderRadius: 4,
+          border: "none",
+          background: "transparent",
+          color: PreggaColors.neutral400,
+          cursor: "pointer",
+          transition: "all 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = PreggaColors.neutral100;
+          e.currentTarget.style.color = PreggaColors.neutral600;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = PreggaColors.neutral400;
+        }}
+        title="Copy ID"
+      >
+        <Copy size={14} />
+      </button>
+    </div>
+  );
 }
 
 function calculatePregnancyWeek(dueDate: string | null): number | null {
@@ -111,6 +155,11 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
   }
 
   const columns: TableColumn<UserWithProfile>[] = [
+    {
+      key: "id",
+      label: "User ID",
+      render: (_, row) => <CopyableId id={row.id} />,
+    },
     {
       key: "display_name",
       label: "User",

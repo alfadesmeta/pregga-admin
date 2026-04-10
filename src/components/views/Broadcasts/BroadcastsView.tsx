@@ -31,6 +31,7 @@ import {
   Users,
   Check,
   Settings,
+  Copy,
 } from "lucide-react";
 import { DetailHeader, TabSelector, Tab } from "../../ui";
 
@@ -52,6 +53,49 @@ function getStatusBadgeVariant(status: BroadcastStatus): "sage" | "warning" | "n
     case "no_doulas": return "neutral";
     default: return "neutral";
   }
+}
+
+function CopyableId({ id }: { id: string }) {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    toast.success("ID copied to clipboard");
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: "monospace", fontSize: 12, color: PreggaColors.neutral500 }}>
+        {id.slice(0, 8)}...
+      </span>
+      <button
+        onClick={handleCopy}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 24,
+          height: 24,
+          borderRadius: 4,
+          border: "none",
+          background: "transparent",
+          color: PreggaColors.neutral400,
+          cursor: "pointer",
+          transition: "all 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = PreggaColors.neutral100;
+          e.currentTarget.style.color = PreggaColors.neutral600;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = PreggaColors.neutral400;
+        }}
+        title="Copy ID"
+      >
+        <Copy size={14} />
+      </button>
+    </div>
+  );
 }
 
 export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUser, onNavigateToDoula }: BroadcastsViewProps) {
@@ -127,6 +171,11 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
   }
 
   const columns = [
+    {
+      key: "id",
+      label: "Request ID",
+      render: (_: unknown, broadcast: BroadcastWithDetails) => <CopyableId id={broadcast.id} />,
+    },
     {
       key: "user",
       label: "Requesting User",
