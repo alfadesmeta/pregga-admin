@@ -1,38 +1,32 @@
-import { useState, useEffect } from "react";
-import toast from "react-hot-toast";
-import { useCountUp, useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
+import { useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
 import { PreggaColors } from "../../../theme/colors";
-import { Card } from "../../ui/Card";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
 import { Badge } from "../../ui/Badge";
-import { Modal } from "../../ui/Modal";
 import { ShimmerListItem } from "../../ui/Shimmer";
 import {
   fetchConversations,
   fetchConversationById,
-  fetchConversationMessages,
-  endConversation,
-  reactivateConversation,
+  fetchConversationTabCounts,
   type ConversationFilters,
 } from "../../../lib/api";
+import { formatTimeAgo } from "../../../lib/formatTime";
+import { fetchStreamMessages } from "../../../lib/streamChat";
 import { friendlyError } from "../../../lib/errors";
 import type { ConversationWithUsers, Profile } from "../../../types/database";
 import {
   Search,
   MessageCircle,
   Archive,
-  User,
-  Heart,
   X,
   AlertCircle,
-  Play,
-  Pause,
   ChevronDown,
   Loader2,
   ArrowLeft,
-  Calendar,
   Shield,
+  CheckCheck,
 } from "lucide-react";
 
 interface ChatViewProps {
@@ -59,33 +53,17 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function formatTimeAgo(date: string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatDate(date);
-}
-
 export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: ChatViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "archived">("all");
 
   const filters: ConversationFilters = {
-    isActive: activeTab === "active" ? true : false,
+    isActive: activeTab === "all" ? undefined : activeTab === "active" ? true : false,
     search: searchQuery || undefined,
   };
 
   const {
     data: conversations,
-    count,
     isLoading,
     error,
     refetch,
@@ -95,14 +73,13 @@ export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: C
     { pageSize: 50 }
   );
 
-  const { data: allConversations } = useSupabasePaginatedQuery<ConversationWithUsers>(
-    ['conversations', 'all'],
-    (from, to) => fetchConversations(from, to, {}),
-    { pageSize: 100 }
+  const { data: tabCounts } = useSupabaseQuery(
+    ['conversations', 'tab-counts'],
+    () => fetchConversationTabCounts()
   );
 
-  const activeCount = allConversations?.filter(c => c.is_active).length || 0;
-  const archivedCount = allConversations?.filter(c => !c.is_active).length || 0;
+  const activeCount = tabCounts?.active ?? 0;
+  const archivedCount = tabCounts?.archived ?? 0;
 
   const handleSelectConversation = (id: string) => {
     onNavigateToSubView?.(id);
@@ -159,7 +136,7 @@ export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: C
             gap: 12,
           }}
         >
-          {/* Tabs - Styled like Doulas page */}
+          {/* Tabs */}
           <div
             style={{
               display: "flex",
@@ -169,48 +146,34 @@ export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: C
               border: `1px solid ${PreggaColors.secondary300}`,
             }}
           >
-            <button
-              onClick={() => setActiveTab("active")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: activeTab === "active" ? `1px solid ${PreggaColors.secondary300}` : "1px solid transparent",
-                background: activeTab === "active" ? PreggaColors.secondary100 : "transparent",
-                color: activeTab === "active" ? PreggaColors.neutral900 : PreggaColors.neutral500,
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                outline: "none",
-              }}
-            >
-              <MessageCircle size={14} />
-              Active ({activeCount})
-            </button>
-            <button
-              onClick={() => setActiveTab("archived")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: activeTab === "archived" ? `1px solid ${PreggaColors.secondary300}` : "1px solid transparent",
-                background: activeTab === "archived" ? PreggaColors.secondary100 : "transparent",
-                color: activeTab === "archived" ? PreggaColors.neutral900 : PreggaColors.neutral500,
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                outline: "none",
-              }}
-            >
-              <Archive size={14} />
-              Archived ({archivedCount})
-            </button>
+            {([
+              { id: "all" as const, label: `All (${activeCount + archivedCount})`, icon: <MessageCircle size={14} /> },
+              { id: "active" as const, label: `Active (${activeCount})`, icon: <MessageCircle size={14} /> },
+              { id: "archived" as const, label: `Archived (${archivedCount})`, icon: <Archive size={14} /> },
+            ]).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: activeTab === tab.id ? `1px solid ${PreggaColors.secondary300}` : "1px solid transparent",
+                  background: activeTab === tab.id ? PreggaColors.secondary100 : "transparent",
+                  color: activeTab === tab.id ? PreggaColors.neutral900 : PreggaColors.neutral500,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  outline: "none",
+                }}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Search */}
@@ -254,12 +217,14 @@ export function ChatView({ isMobile, subView, onNavigateToSubView, onGoBack }: C
                 <MessageCircle size={24} color={PreggaColors.neutral400} />
               </div>
               <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 4px" }}>
-                No {activeTab === "active" ? "active" : "archived"} conversations
+                No {activeTab === "all" ? "" : activeTab === "active" ? "active " : "archived "}conversations
               </h3>
               <p style={{ color: PreggaColors.neutral500, fontSize: 14, margin: 0 }}>
                 {activeTab === "active" 
                   ? "When users start chatting with doulas, they'll appear here"
-                  : "Ended conversations will appear here"
+                  : activeTab === "archived"
+                  ? "Ended conversations will appear here"
+                  : "No conversations found"
                 }
               </p>
             </div>
@@ -412,7 +377,7 @@ function ConversationListItem({
 function ConversationDetailView({
   conversationId,
   onGoBack,
-  onRefresh,
+  onRefresh: _onRefresh,
   isMobile,
 }: {
   conversationId: string;
@@ -420,34 +385,10 @@ function ConversationDetailView({
   onRefresh: () => void;
   isMobile: boolean;
 }) {
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const { data: conversation, isLoading, error, refetch } = useSupabaseQuery<ConversationWithUsers | null>(
+  const { data: conversation, isLoading, error } = useSupabaseQuery<ConversationWithUsers | null>(
     ['conversation', conversationId],
     () => fetchConversationById(conversationId)
   );
-
-  const handleToggleStatus = async () => {
-    if (!conversation) return;
-    setIsProcessing(true);
-    try {
-      if (conversation.is_active) {
-        await endConversation(conversation.id);
-        toast.success("Conversation ended");
-      } else {
-        await reactivateConversation(conversation.id);
-        toast.success("Conversation reactivated");
-      }
-      refetch();
-      onRefresh();
-      setShowActionModal(false);
-    } catch (err) {
-      toast.error(friendlyError(err));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -512,7 +453,9 @@ function ConversationDetailView({
               width: 36,
               height: 36,
               borderRadius: "50%",
-              border: `1px solid ${PreggaColors.neutral200}`,
+              borderWidth: 1,
+              borderStyle: "solid",
+              borderColor: PreggaColors.neutral200,
               background: PreggaColors.white,
               cursor: "pointer",
               display: "flex",
@@ -524,10 +467,14 @@ function ConversationDetailView({
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = PreggaColors.neutral50;
+              e.currentTarget.style.borderWidth = "1px";
+              e.currentTarget.style.borderStyle = "solid";
               e.currentTarget.style.borderColor = PreggaColors.neutral300;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = PreggaColors.white;
+              e.currentTarget.style.borderWidth = "1px";
+              e.currentTarget.style.borderStyle = "solid";
               e.currentTarget.style.borderColor = PreggaColors.neutral200;
             }}
           >
@@ -601,103 +548,277 @@ function ConversationDetailView({
 
       {/* Chat History */}
       <MessageTranscript
-        conversationId={conversationId}
+        streamChannelId={conversation.stream_channel_id}
         pregnantUser={pregnantUser as Profile}
         doula={doula as Profile}
         isMobile={isMobile}
+        conversation={conversation}
       />
 
-      {/* Action Button */}
-      <div style={{ display: "flex", gap: 12 }}>
-        <Button
-          variant="outline"
-          onClick={() => setShowActionModal(true)}
-          icon={conversation.is_active ? <Pause size={16} /> : <Play size={16} />}
-        >
-          {conversation.is_active ? "End Conversation" : "Reactivate"}
-        </Button>
-      </div>
-
-      {/* Confirmation Modal */}
-      <Modal
-        open={showActionModal}
-        onClose={() => setShowActionModal(false)}
-        title=""
-        width={400}
-        footer={
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-            <Button variant="outline" onClick={() => setShowActionModal(false)}>Cancel</Button>
-            <Button
-              onClick={handleToggleStatus}
-              loading={isProcessing}
-              style={{ background: conversation.is_active ? PreggaColors.warning500 : PreggaColors.success500 }}
-            >
-              {conversation.is_active ? "End Conversation" : "Reactivate"}
-            </Button>
-          </div>
-        }
-      >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", background: conversation.is_active ? PreggaColors.warning100 : PreggaColors.success100, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            {conversation.is_active ? <Pause size={28} color={PreggaColors.warning600} /> : <Play size={28} color={PreggaColors.success600} />}
-          </div>
-          <h3 style={{ fontSize: 18, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>
-            {conversation.is_active ? "End this conversation?" : "Reactivate this conversation?"}
-          </h3>
-          <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: 0, lineHeight: 1.5 }}>
-            {conversation.is_active
-              ? "This will freeze the chat channel and prevent further messages."
-              : "This will unfreeze the chat channel and allow messaging to resume."
-            }
-          </p>
-        </div>
-      </Modal>
     </div>
   );
 }
 
-interface MessageData {
+interface StreamMessageData {
   id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
+  text: string;
+  userId: string;
+  userName?: string;
   created_at: string;
-  read_at: string | null;
-  sender: Profile;
+  attachments: { type?: string; image_url?: string; thumb_url?: string }[];
+  status: string;
+  type: string;
+}
+
+function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 10000,
+        background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "zoom-out", animation: "modalFadeIn 0.15s ease-out",
+        padding: 24,
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute", top: 20, right: 20,
+          width: 40, height: 40, borderRadius: "50%",
+          background: "rgba(255,255,255,0.15)", border: "none",
+          color: "#fff", cursor: "pointer", display: "flex",
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <X size={20} />
+      </button>
+      <img
+        src={src}
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: "90vw", maxHeight: "90vh",
+          borderRadius: 12, objectFit: "contain",
+          cursor: "default",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}
+      />
+    </div>,
+    document.body
+  );
+}
+
+let setGlobalLightbox: ((src: string | null) => void) | null = null;
+
+function LightboxProvider({ children }: { children: React.ReactNode }) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGlobalLightbox = setLightboxSrc;
+    return () => { setGlobalLightbox = null; };
+  }, []);
+
+  return (
+    <>
+      {children}
+      {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+    </>
+  );
+}
+
+function openLightbox(src: string) {
+  setGlobalLightbox?.(src);
+}
+
+function MessageAttachments({ attachments, isDoula }: { attachments: StreamMessageData['attachments']; isDoula: boolean }) {
+  const images = attachments.filter((a) => a.type === 'image' || a.image_url || a.thumb_url);
+  if (images.length === 0) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {images.map((img, idx) => {
+        const src = img.image_url || img.thumb_url || '';
+        return (
+          <div
+            key={idx}
+            onClick={() => openLightbox(src)}
+            style={{
+              borderRadius: 8,
+              overflow: "hidden",
+              border: isDoula ? "1px solid #E3E0D9" : "none",
+              background: isDoula ? PreggaColors.white : "#5C7049",
+              padding: 4,
+              maxWidth: 200,
+              cursor: "zoom-in",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+          >
+            <img
+              src={src}
+              alt=""
+              style={{
+                width: "100%",
+                borderRadius: 6,
+                display: "block",
+                maxHeight: 200,
+                objectFit: "cover",
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MessageTimestamp({ time, status, isDoula }: { time: string; status: string; isDoula: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{ fontSize: 11, color: "#9C9289" }}>{time}</span>
+      {!isDoula && (
+        <CheckCheck
+          size={13}
+          style={{
+            color: status === 'received' ? "#7DA87D" : "#D6CCC2",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SystemEventBubble({ text, time }: { text: string; time?: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", margin: "8px 0" }}>
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: "#EFEEE7",
+          borderRadius: 20,
+          padding: "6px 14px",
+          maxWidth: "85%",
+        }}
+      >
+        <Shield size={12} style={{ color: "#9C9289", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: "#80776E", lineHeight: "16px" }}>
+          {text}
+        </span>
+        {time && (
+          <span style={{ fontSize: 10, color: "#9C9289", whiteSpace: "nowrap" }}>
+            {time}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function injectLifecycleEvents(
+  messages: StreamMessageData[],
+  conversation?: { started_at?: string | null; ended_at?: string | null; is_active?: boolean | null } | null,
+  doula?: { display_name?: string | null } | null,
+): StreamMessageData[] {
+  const result = [...messages];
+  if (!conversation) return result;
+
+  if (conversation.started_at) {
+    const startEvent: StreamMessageData = {
+      id: '__started__',
+      text: `Chat session started${doula?.display_name ? ` with ${doula.display_name}` : ''}`,
+      userId: '__system__',
+      created_at: conversation.started_at,
+      attachments: [],
+      status: 'received',
+      type: 'system',
+    };
+    const firstMsgTime = result.length > 0 ? new Date(result[0].created_at).getTime() : Infinity;
+    if (new Date(conversation.started_at).getTime() <= firstMsgTime) {
+      result.unshift(startEvent);
+    }
+  }
+
+  if (conversation.ended_at && !conversation.is_active) {
+    const endEvent: StreamMessageData = {
+      id: '__ended__',
+      text: 'Chat session ended',
+      userId: '__system__',
+      created_at: conversation.ended_at,
+      attachments: [],
+      status: 'received',
+      type: 'system',
+    };
+    const lastMsgTime = result.length > 0 ? new Date(result[result.length - 1].created_at).getTime() : -Infinity;
+    if (new Date(conversation.ended_at).getTime() >= lastMsgTime) {
+      result.push(endEvent);
+    }
+  }
+
+  return result;
 }
 
 function MessageTranscript({
-  conversationId,
+  streamChannelId,
   pregnantUser,
   doula,
   isMobile,
+  conversation,
 }: {
-  conversationId: string;
+  streamChannelId: string;
   pregnantUser: Profile;
   doula: Profile;
   isMobile: boolean;
+  conversation?: ConversationWithUsers | null;
 }) {
-  const [messages, setMessages] = useState<MessageData[]>([]);
+  const [messages, setMessages] = useState<StreamMessageData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const LIMIT = 30;
 
-  const loadMessages = async (newOffset: number = 0, append: boolean = false) => {
-    if (append) setIsLoadingMore(true);
+  const loadMessages = async (beforeId?: string) => {
+    if (beforeId) setIsLoadingMore(true);
     else setIsLoading(true);
 
     try {
-      const result = await fetchConversationMessages(conversationId, LIMIT, newOffset);
-      if (append) {
-        setMessages((prev) => [...result.data, ...prev]);
+      const result = await fetchStreamMessages(streamChannelId, LIMIT, beforeId);
+      const mapped = result.messages
+        .filter((m) => m.type === 'regular' || m.type === 'system')
+        .map((m) => ({
+          id: m.id,
+          text: m.text,
+          userId: m.user.id,
+          userName: m.user.name,
+          created_at: m.created_at,
+          attachments: m.attachments || [],
+          status: m.status || 'received',
+          type: m.type,
+        }));
+
+      if (beforeId) {
+        setMessages((prev) => [...mapped, ...prev]);
       } else {
-        setMessages(result.data as MessageData[]);
+        setMessages(mapped);
       }
-      setTotalCount(result.count);
-      setHasMore(newOffset + LIMIT < result.count);
+      setHasMore(result.hasMore);
     } catch (err) {
       console.error("Failed to load messages:", err);
     } finally {
@@ -707,13 +828,13 @@ function MessageTranscript({
   };
 
   useEffect(() => {
-    loadMessages(0);
-  }, [conversationId]);
+    if (streamChannelId) loadMessages();
+  }, [streamChannelId]);
 
   const loadMore = () => {
-    const newOffset = offset + LIMIT;
-    setOffset(newOffset);
-    loadMessages(newOffset, true);
+    if (messages.length > 0) {
+      loadMessages(messages[0].id);
+    }
   };
 
   const formatMessageTime = (dateStr: string): string => {
@@ -732,8 +853,8 @@ function MessageTranscript({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const groupMessagesByDate = (msgs: MessageData[]) => {
-    const groups: { date: string; messages: MessageData[] }[] = [];
+  const groupMessagesByDate = (msgs: StreamMessageData[]) => {
+    const groups: { date: string; messages: StreamMessageData[] }[] = [];
     let currentDate = "";
 
     msgs.forEach((msg) => {
@@ -749,143 +870,164 @@ function MessageTranscript({
     return groups;
   };
 
-  const messageGroups = groupMessagesByDate(messages);
+  const enrichedMessages = injectLifecycleEvents(messages, conversation, doula);
+  const messageGroups = groupMessagesByDate(enrichedMessages);
+  const doulaAvatar = doula?.avatar_url;
+  const doulaInitials = (doula?.display_name || "D").split(" ").map((n) => n[0]).join("").slice(0, 2);
+  const userAvatar = pregnantUser?.avatar_url;
+  const userInitials = (pregnantUser?.display_name || "U").split(" ").map((n) => n[0]).join("").slice(0, 2);
 
   return (
-    <Card padding="0">
-      <div style={{ padding: "16px 20px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>
-            Message Transcript
-          </h3>
-          <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
-            {totalCount} message{totalCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
-
+    <LightboxProvider>
+    <div
+      style={{
+        background: "#F2F5EF",
+        borderRadius: 16,
+        overflow: "hidden",
+        border: `1px solid ${PreggaColors.secondary300}`,
+      }}
+    >
       {isLoading ? (
-        <div style={{ padding: 40, textAlign: "center" }}>
+        <div style={{ padding: 48, textAlign: "center" }}>
           <Loader2 size={24} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
-          <p style={{ marginTop: 12, color: PreggaColors.neutral500, fontSize: 14 }}>Loading messages...</p>
+          <p style={{ marginTop: 12, color: "#9C9289", fontSize: 14 }}>Loading messages...</p>
         </div>
       ) : messages.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center" }}>
-          <MessageCircle size={32} color={PreggaColors.neutral300} style={{ marginBottom: 12 }} />
-          <p style={{ color: PreggaColors.neutral500, fontSize: 14, margin: 0 }}>No messages in this conversation</p>
+        <div style={{ padding: 48, textAlign: "center" }}>
+          <MessageCircle size={32} color="#D6CCC2" style={{ marginBottom: 12 }} />
+          <p style={{ color: "#9C9289", fontSize: 14, margin: 0 }}>No messages in this conversation</p>
         </div>
       ) : (
-        <div style={{ maxHeight: isMobile ? 400 : 500, overflowY: "auto" }}>
+        <div style={{ maxHeight: isMobile ? 420 : 520, overflowY: "auto" }}>
           {hasMore && (
-            <div style={{ padding: "12px 20px", textAlign: "center", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
+            <div style={{ padding: "12px 20px", textAlign: "center" }}>
               <button
                 onClick={loadMore}
                 disabled={isLoadingMore}
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: PreggaColors.sage600,
-                  fontSize: 13,
+                  background: PreggaColors.white,
+                  border: `1px solid #E3E0D9`,
+                  borderRadius: 20,
+                  color: "#72845D",
+                  fontSize: 12,
                   fontWeight: 500,
                   cursor: isLoadingMore ? "default" : "pointer",
-                  display: "flex",
+                  padding: "6px 16px",
+                  display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  margin: "0 auto",
                 }}
               >
                 {isLoadingMore ? (
-                  <>
-                    <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                    Loading...
-                  </>
+                  <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Loading...</>
                 ) : (
-                  <>
-                    <ChevronDown size={14} />
-                    Load older messages
-                  </>
+                  <><ChevronDown size={12} style={{ transform: "rotate(180deg)" }} /> Load older</>
                 )}
               </button>
             </div>
           )}
 
-          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 8 }}>
             {messageGroups.map((group, groupIdx) => (
               <div key={groupIdx}>
-                <div style={{ textAlign: "center", marginBottom: 12 }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 500,
-                      color: PreggaColors.neutral500,
-                      background: PreggaColors.neutral50,
-                      padding: "4px 12px",
-                      borderRadius: 12,
-                    }}
-                  >
+                {/* Date divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "12px 0 16px" }}>
+                  <div style={{ flex: 1, height: 1, background: "#D6CCC2", opacity: 0.5 }} />
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "#9C9289", whiteSpace: "nowrap" }}>
                     {group.date}
                   </span>
+                  <div style={{ flex: 1, height: 1, background: "#D6CCC2", opacity: 0.5 }} />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {group.messages.map((msg) => {
-                    const isUser = msg.sender_id === pregnantUser?.id;
-                    const senderName = isUser ? pregnantUser?.display_name : doula?.display_name;
+                    if (msg.type === 'system') {
+                      return <SystemEventBubble key={msg.id} text={msg.text} time={formatMessageTime(msg.created_at)} />;
+                    }
 
+                    const isDoula = msg.userId === doula?.id;
+                    const senderName = isDoula ? doula?.display_name : (msg.userId === pregnantUser?.id ? pregnantUser?.display_name : msg.userName);
+
+                    if (isDoula) {
+                      return (
+                        <div key={msg.id} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                          <div
+                            style={{
+                              width: 32, height: 32, borderRadius: "50%",
+                              background: `linear-gradient(135deg, ${PreggaColors.sage400}, ${PreggaColors.sage500})`,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: PreggaColors.white, fontSize: 11, fontWeight: 600,
+                              overflow: "hidden", flexShrink: 0,
+                            }}
+                          >
+                            {doulaAvatar ? (
+                              <img src={doulaAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : doulaInitials}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5, maxWidth: "75%" }}>
+                            <span style={{ fontSize: 12, color: "#80776E" }}>
+                              {senderName || "Doula"}
+                            </span>
+                            {msg.attachments.length > 0 && (
+                              <MessageAttachments attachments={msg.attachments} isDoula={true} />
+                            )}
+                            {msg.text && (
+                              <div
+                                style={{
+                                  background: PreggaColors.white,
+                                  border: "1px solid #E3E0D9",
+                                  borderRadius: "4px 16px 16px 16px",
+                                  padding: "12px 16px",
+                                }}
+                              >
+                                <p style={{ fontSize: 14, color: "#544D4D", margin: 0, lineHeight: "22px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                  {msg.text}
+                                </p>
+                              </div>
+                            )}
+                            <MessageTimestamp time={formatMessageTime(msg.created_at)} status={msg.status} isDoula={true} />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const userName = msg.userId === pregnantUser?.id ? pregnantUser?.display_name : msg.userName;
                     return (
-                      <div
-                        key={msg.id}
-                        style={{
-                          display: "flex",
-                          flexDirection: isUser ? "row" : "row-reverse",
-                          gap: 10,
-                          alignItems: "flex-end",
-                        }}
-                      >
+                      <div key={msg.id} style={{ display: "flex", gap: 12, justifyContent: "flex-end", alignItems: "flex-start" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end", maxWidth: "75%" }}>
+                          <span style={{ fontSize: 12, color: "#80776E" }}>
+                            {userName || "User"}
+                          </span>
+                          {msg.attachments.length > 0 && (
+                            <MessageAttachments attachments={msg.attachments} isDoula={false} />
+                          )}
+                          {msg.text && (
+                            <div
+                              style={{
+                                background: "#72845D",
+                                borderRadius: "16px 4px 16px 16px",
+                                padding: "12px 16px",
+                              }}
+                            >
+                              <p style={{ fontSize: 14, color: PreggaColors.white, margin: 0, lineHeight: "22px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                {msg.text}
+                              </p>
+                            </div>
+                          )}
+                          <MessageTimestamp time={formatMessageTime(msg.created_at)} status={msg.status} isDoula={false} />
+                        </div>
                         <div
                           style={{
-                            maxWidth: "75%",
-                            background: isUser ? PreggaColors.sage50 : PreggaColors.terracotta50,
-                            borderRadius: isUser ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
-                            padding: "10px 14px",
+                            width: 32, height: 32, borderRadius: "50%",
+                            background: `linear-gradient(135deg, ${PreggaColors.primary400 || "#C4956A"}, ${PreggaColors.primary500 || "#B07D52"})`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: PreggaColors.white, fontSize: 11, fontWeight: 600,
+                            overflow: "hidden", flexShrink: 0,
                           }}
                         >
-                          <div
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: isUser ? PreggaColors.sage700 : PreggaColors.terracotta700,
-                              marginBottom: 4,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                            }}
-                          >
-                            {isUser ? <User size={12} /> : <Heart size={12} />}
-                            {senderName || (isUser ? "User" : "Doula")}
-                          </div>
-                          <p
-                            style={{
-                              fontSize: 14,
-                              color: PreggaColors.neutral900,
-                              margin: 0,
-                              lineHeight: 1.5,
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {msg.content}
-                          </p>
-                          <div
-                            style={{
-                              fontSize: 10,
-                              color: PreggaColors.neutral400,
-                              marginTop: 4,
-                              textAlign: "right",
-                            }}
-                          >
-                            {formatMessageTime(msg.created_at)}
-                          </div>
+                          {userAvatar ? (
+                            <img src={userAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : userInitials}
                         </div>
                       </div>
                     );
@@ -896,406 +1038,31 @@ function MessageTranscript({
           </div>
         </div>
       )}
-    </Card>
-  );
-}
 
-function FullChatView({
-  conversationId,
-  onGoBack,
-  isMobile,
-}: {
-  conversationId: string;
-  onGoBack: () => void;
-  isMobile: boolean;
-}) {
-  const [messages, setMessages] = useState<MessageData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const LIMIT = 50;
-
-  const { data: conversation } = useSupabaseQuery<ConversationWithUsers | null>(
-    ['conversation', conversationId],
-    () => fetchConversationById(conversationId)
-  );
-
-  const loadMessages = async (newOffset: number = 0, append: boolean = false) => {
-    if (append) setIsLoadingMore(true);
-    else setIsLoading(true);
-
-    try {
-      const result = await fetchConversationMessages(conversationId, LIMIT, newOffset);
-      if (append) {
-        setMessages((prev) => [...result.data, ...prev]);
-      } else {
-        setMessages(result.data as MessageData[]);
-      }
-      setTotalCount(result.count);
-      setHasMore(newOffset + LIMIT < result.count);
-    } catch (err) {
-      console.error("Failed to load messages:", err);
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  };
-
-  useEffect(() => {
-    loadMessages(0);
-  }, [conversationId]);
-
-  const loadMore = () => {
-    const newOffset = offset + LIMIT;
-    setOffset(newOffset);
-    loadMessages(newOffset, true);
-  };
-
-  const formatMessageTime = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  };
-
-  const formatMessageDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) return "Today";
-    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const groupMessagesByDate = (msgs: MessageData[]) => {
-    const groups: { date: string; messages: MessageData[] }[] = [];
-    let currentDate = "";
-
-    msgs.forEach((msg) => {
-      const msgDate = formatMessageDate(msg.created_at);
-      if (msgDate !== currentDate) {
-        currentDate = msgDate;
-        groups.push({ date: currentDate, messages: [msg] });
-      } else {
-        groups[groups.length - 1].messages.push(msg);
-      }
-    });
-
-    return groups;
-  };
-
-  const messageGroups = groupMessagesByDate(messages);
-  const pregnantUser = conversation?.pregnant_user;
-  const doula = conversation?.doula;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 120px)", minHeight: 500 }}>
-      {/* Header */}
+      {/* Read-only footer */}
       <div
         style={{
+          background: PreggaColors.white,
+          borderTop: "1px solid #EFEEE7",
+          padding: "12px 16px",
           display: "flex",
           alignItems: "center",
           gap: 12,
-          padding: "16px 0",
-          borderBottom: `1px solid ${PreggaColors.neutral100}`,
-          marginBottom: 16,
         }}
       >
-        <button
-          onClick={onGoBack}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: PreggaColors.neutral600,
-            padding: 8,
-            borderRadius: 8,
-            display: "flex",
-            transition: "background 0.15s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.neutral100)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: PreggaColors.neutral900, margin: 0 }}>
-            Chat History
-          </h1>
-          <p style={{ fontSize: 13, color: PreggaColors.neutral500, margin: "2px 0 0" }}>
-            {pregnantUser?.display_name || "User"} & {doula?.display_name || "Doula"} • {totalCount} messages
-          </p>
-        </div>
-        {conversation && (
-          <Badge variant={conversation.is_active ? "sage" : "neutral"}>
-            {conversation.is_active ? "Active" : "Ended"}
-          </Badge>
-        )}
-      </div>
-
-      {/* Chat Container */}
-      <div
-        style={{
-          flex: 1,
-          background: PreggaColors.white,
-          borderRadius: 16,
-          border: `1px solid ${PreggaColors.secondary300}`,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Participants Bar */}
         <div
           style={{
-            padding: "12px 20px",
-            background: PreggaColors.neutral50,
-            borderBottom: `1px solid ${PreggaColors.neutral100}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            flex: 1,
+            background: "#F0F5F0",
+            border: "1px solid #E3E0D9",
+            borderRadius: 24,
+            padding: "12px 16px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  background: PreggaColors.sage100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: PreggaColors.sage600,
-                  overflow: "hidden",
-                }}
-              >
-                {pregnantUser?.avatar_url ? (
-                  <img src={pregnantUser.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <User size={16} />
-                )}
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700 }}>
-                {pregnantUser?.display_name || "User"}
-              </span>
-            </div>
-            <span style={{ color: PreggaColors.neutral300 }}>•</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  background: PreggaColors.terracotta100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: PreggaColors.terracotta600,
-                  overflow: "hidden",
-                }}
-              >
-                {doula?.avatar_url ? (
-                  <img src={doula.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <Heart size={16} />
-                )}
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700 }}>
-                {doula?.display_name || "Doula"}
-              </span>
-            </div>
-          </div>
-          <span style={{ fontSize: 12, color: PreggaColors.neutral400 }}>Read-only</span>
-        </div>
-
-        {/* Messages Area */}
-        <div style={{ flex: 1, overflowY: "auto", background: PreggaColors.bgSecondary }}>
-          {isLoading ? (
-            <div style={{ padding: 60, textAlign: "center" }}>
-              <Loader2 size={32} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
-              <p style={{ marginTop: 16, color: PreggaColors.neutral500, fontSize: 14 }}>Loading messages...</p>
-            </div>
-          ) : messages.length === 0 ? (
-            <div style={{ padding: 60, textAlign: "center" }}>
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 16,
-                  background: PreggaColors.neutral100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 16px",
-                }}
-              >
-                <MessageCircle size={28} color={PreggaColors.neutral400} />
-              </div>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 4px" }}>
-                No messages yet
-              </h3>
-              <p style={{ color: PreggaColors.neutral500, fontSize: 14, margin: 0 }}>
-                This conversation has no messages
-              </p>
-            </div>
-          ) : (
-            <div>
-              {hasMore && (
-                <div style={{ padding: "16px 20px", textAlign: "center" }}>
-                  <button
-                    onClick={loadMore}
-                    disabled={isLoadingMore}
-                    style={{
-                      background: PreggaColors.white,
-                      border: `1px solid ${PreggaColors.secondary300}`,
-                      borderRadius: 8,
-                      padding: "10px 20px",
-                      color: PreggaColors.sage600,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      cursor: isLoadingMore ? "default" : "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {isLoadingMore ? (
-                      <>
-                        <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} />
-                        Load older messages
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              <div style={{ padding: isMobile ? "12px 16px" : "20px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
-                {messageGroups.map((group, groupIdx) => (
-                  <div key={groupIdx}>
-                    <div style={{ textAlign: "center", marginBottom: 16 }}>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 500,
-                          color: PreggaColors.neutral500,
-                          background: PreggaColors.white,
-                          padding: "6px 16px",
-                          borderRadius: 16,
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                        }}
-                      >
-                        {group.date}
-                      </span>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      {group.messages.map((msg) => {
-                        const isUser = msg.sender_id === pregnantUser?.id;
-                        const senderName = isUser ? pregnantUser?.display_name : doula?.display_name;
-
-                        return (
-                          <div
-                            key={msg.id}
-                            style={{
-                              display: "flex",
-                              flexDirection: isUser ? "row" : "row-reverse",
-                              gap: 10,
-                              alignItems: "flex-end",
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: "50%",
-                                background: isUser ? PreggaColors.sage100 : PreggaColors.terracotta100,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: isUser ? PreggaColors.sage600 : PreggaColors.terracotta600,
-                                flexShrink: 0,
-                                fontSize: 12,
-                              }}
-                            >
-                              {isUser ? <User size={14} /> : <Heart size={14} />}
-                            </div>
-                            <div
-                              style={{
-                                maxWidth: isMobile ? "80%" : "60%",
-                                background: isUser ? PreggaColors.white : PreggaColors.terracotta50,
-                                borderRadius: isUser ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
-                                padding: "12px 16px",
-                                boxShadow: isUser ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
-                                border: isUser ? `1px solid ${PreggaColors.secondary300}` : "none",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  color: isUser ? PreggaColors.sage700 : PreggaColors.terracotta700,
-                                  marginBottom: 6,
-                                }}
-                              >
-                                {senderName || (isUser ? "User" : "Doula")}
-                              </div>
-                              <p
-                                style={{
-                                  fontSize: 14,
-                                  color: PreggaColors.neutral900,
-                                  margin: 0,
-                                  lineHeight: 1.6,
-                                  whiteSpace: "pre-wrap",
-                                  wordBreak: "break-word",
-                                }}
-                              >
-                                {msg.content}
-                              </p>
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: PreggaColors.neutral400,
-                                  marginTop: 6,
-                                  textAlign: "right",
-                                }}
-                              >
-                                {formatMessageTime(msg.created_at)}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Read-only Footer */}
-        <div
-          style={{
-            padding: "12px 20px",
-            background: PreggaColors.neutral50,
-            borderTop: `1px solid ${PreggaColors.neutral100}`,
-            textAlign: "center",
-          }}
-        >
-          <p style={{ fontSize: 13, color: PreggaColors.neutral500, margin: 0 }}>
-            This is a read-only view of the conversation. Messages cannot be sent from the admin panel.
-          </p>
+          <span style={{ fontSize: 14, color: "#9C9289" }}>Read-only admin view</span>
         </div>
       </div>
     </div>
+    </LightboxProvider>
   );
 }

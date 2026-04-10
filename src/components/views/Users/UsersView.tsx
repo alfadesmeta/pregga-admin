@@ -19,6 +19,7 @@ import {
   type UserFilters,
 } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
+import { formatTimeAgo } from "../../../lib/formatTime";
 import type { UserWithProfile, ConversationWithUsers, BroadcastRequest } from "../../../types/database";
 import {
   Search,
@@ -50,21 +51,6 @@ function formatDate(dateStr: string): string {
     day: 'numeric',
     year: 'numeric',
   });
-}
-
-function formatTimeAgo(date: string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatDate(date);
 }
 
 function calculatePregnancyWeek(dueDate: string | null): number | null {
@@ -182,7 +168,7 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
         const activeSub = row.subscriptions?.find(s => s.status === 'active');
         return activeSub ? (
           <div>
-            <div style={{ fontWeight: 500, textTransform: 'capitalize' }}>{activeSub.plan.replace('_', ' ')}</div>
+            <div style={{ fontWeight: 500, textTransform: 'capitalize' }}>{activeSub.plan_type?.replace('_', ' ') || 'Premium'}</div>
             <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{activeSub.status}</div>
           </div>
         ) : (
@@ -518,7 +504,7 @@ function UserDetailView({
                 style={{
                   width: 56,
                   height: 56,
-                  borderRadius: 14,
+                  borderRadius: "50%",
                   background: `linear-gradient(135deg, ${PreggaColors.sage400} 0%, ${PreggaColors.sage500} 100%)`,
                   display: "flex",
                   alignItems: "center",
@@ -569,7 +555,7 @@ function UserDetailView({
             />
             <StatItem
               label="Subscription"
-              value={activeSub?.plan?.replace('_', ' ') || "Free"}
+              value={activeSub?.plan_type?.replace('_', ' ') || "Free"}
               highlight={!!activeSub}
               isMobile={isMobile}
               center={!isMobile}
@@ -625,7 +611,7 @@ function UserDetailView({
               <DetailRow label="Due Date" value={user.pregnant_profiles?.due_date ? formatDate(user.pregnant_profiles.due_date) : "Not set"} />
               <DetailRow label="Current Week" value={pregnancyWeek ? `Week ${pregnancyWeek}` : "—"} />
               <DetailRow label="Trimester" value={pregnancyWeek ? (pregnancyWeek <= 13 ? "First Trimester" : pregnancyWeek <= 26 ? "Second Trimester" : "Third Trimester") : "—"} />
-              <DetailRow label="Onboarding Status" value={user.pregnant_profiles?.onboarding_complete ? "Completed" : "In Progress"} />
+              <DetailRow label="Onboarding Status" value={user.onboarding_step != null && user.onboarding_step >= 3 ? "Completed" : "Pending"} />
             </div>
           </div>
         </Card>
@@ -645,19 +631,19 @@ function UserDetailView({
                   <div>
                     <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 6, textTransform: "uppercase", fontWeight: 500, letterSpacing: "0.5px" }}>Plan</div>
                     <div style={{ fontSize: 26, fontWeight: 700, color: PreggaColors.sage600, textTransform: "capitalize" }}>
-                      {activeSub.plan?.replace('_', ' ') || "Premium"}
+                      {activeSub.plan_type?.replace('_', ' ') || "Premium"}
                     </div>
                   </div>
-                  <StatusBadge status={activeSub.status} />
+                  <StatusBadge status={activeSub.status ?? "expired"} />
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
                     <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Start Date</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>{formatDate(activeSub.starts_at)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>{activeSub.purchased_at ? formatDate(activeSub.purchased_at) : "—"}</div>
                   </div>
                   <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
                     <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Renewal Date</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>{activeSub.ends_at ? formatDate(activeSub.ends_at) : "Auto-renewing"}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>{activeSub.expiration_at ? formatDate(activeSub.expiration_at) : "Auto-renewing"}</div>
                   </div>
                 </div>
               </div>
@@ -684,12 +670,12 @@ function UserDetailView({
                   {user.subscriptions.filter(s => s.id !== activeSub?.id).map((sub) => (
                     <div key={sub.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
                       <div>
-                        <div style={{ fontWeight: 500, textTransform: "capitalize", fontSize: 14 }}>{sub.plan?.replace('_', ' ')}</div>
+                        <div style={{ fontWeight: 500, textTransform: "capitalize", fontSize: 14 }}>{sub.plan_type?.replace('_', ' ') || "Unknown"}</div>
                         <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginTop: 2 }}>
-                          {formatDate(sub.starts_at)} — {sub.ends_at ? formatDate(sub.ends_at) : "Ongoing"}
+                          {sub.purchased_at ? formatDate(sub.purchased_at) : "—"} — {sub.expiration_at ? formatDate(sub.expiration_at) : "Ongoing"}
                         </div>
                       </div>
-                      <StatusBadge status={sub.status} />
+                      <StatusBadge status={sub.status ?? "expired"} />
                     </div>
                   ))}
                 </div>
@@ -733,7 +719,7 @@ function UserDetailView({
                       <div>
                         <div style={{ fontWeight: 500, fontSize: 14 }}>Chat with {conv.doula?.display_name || "Doula"}</div>
                         <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginTop: 2 }}>
-                          Started {formatTimeAgo(conv.created_at)}
+                          Started {formatTimeAgo(conv.started_at || "")}
                         </div>
                       </div>
                     </div>
@@ -782,7 +768,7 @@ function UserDetailView({
                         {broadcast.initial_message && broadcast.initial_message.length > 80 ? "..." : ""}
                       </div>
                       <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
-                        {formatTimeAgo(broadcast.created_at)} • {broadcast.notified_doulas?.length || 0} doulas notified
+                        {formatTimeAgo(broadcast.created_at)} • {broadcast.notified_doula_ids?.length || 0} doulas notified
                       </div>
                     </div>
                     <StatusBadge status={broadcast.status} />
@@ -862,7 +848,7 @@ function UserDetailView({
         onClose={() => setShowEditModal(false)}
         onSave={async (data) => {
           try {
-            await updateUserProfile(user.id, data.profile, data.pregnant);
+            await updateUserProfile(user.id, data.profile, data.pregnant ?? undefined);
             toast.success("Profile updated");
             refetch();
             setShowEditModal(false);

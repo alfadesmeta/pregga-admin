@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useCountUp, useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
+import { formatTimeAgo } from "../../../lib/formatTime";
 import { PreggaColors } from "../../../theme/colors";
 import { DataTable, TableColumn } from "../../ui/DataTable";
 import { Button } from "../../ui/Button";
@@ -12,8 +13,10 @@ import { Modal } from "../../ui/Modal";
 import {
   fetchDoulas,
   fetchDoulaById,
-  fetchDoulaClients,
   fetchDoulaConversations,
+  fetchDoulaAssignments,
+  fetchDoulaKpiCounts,
+  unassignClientFromDoula,
   updateDoulaProfile,
   updateDoulaAvailability,
   verifyDoula,
@@ -21,7 +24,9 @@ import {
   type DoulaFilters,
 } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
-import type { DoulaWithProfile, UserWithProfile, ConversationWithUsers } from "../../../types/database";
+import type { DoulaWithProfile, ConversationWithUsers, DoulaAssignmentWithUser } from "../../../types/database";
+import { AddDoulaModal } from "./AddDoulaModal";
+import { AssignClientsModal } from "./AssignClientsModal";
 import {
   Search,
   Users,
@@ -37,6 +42,10 @@ import {
   Trash2,
   AlertTriangle,
   User,
+  Plus,
+  UserPlus,
+  Link2,
+  UserMinus,
 } from "lucide-react";
 import { DetailHeader, TabSelector, Tab } from "../../ui";
 
@@ -53,24 +62,10 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function formatTimeAgo(date: string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatDate(date);
-}
-
 export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToUserWithReturn, onNavigateToConversation }: DoulasViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<DoulaFilters>({});
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const {
     data: doulas,
@@ -86,6 +81,11 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
     ['doulas', JSON.stringify(filters), searchQuery],
     (from, to) => fetchDoulas(from, to, { ...filters, search: searchQuery || undefined }),
     { pageSize: 10 }
+  );
+
+  const { data: doulaKpis, refetch: refetchDoulaKpis } = useSupabaseQuery(
+    ['doulas', 'kpi-counts'],
+    () => fetchDoulaKpiCounts()
   );
 
   if (subView) {
@@ -158,7 +158,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
       key: "verification",
       label: "Status",
       render: (_, row) => (
-        <StatusBadge status={row.doula_profiles?.is_available ? "verified" : "pending"} />
+        <StatusBadge status={row.doula_profiles?.is_verified ? "verified" : "pending"} />
       ),
     },
     {
@@ -209,7 +209,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
             <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{doula.email || doula.phone}</div>
           </div>
         </div>
-        <StatusBadge status={doula.doula_profiles?.is_available ? "verified" : "pending"} />
+        <StatusBadge status={doula.doula_profiles?.is_verified ? "verified" : "pending"} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
         <Badge variant={doula.doula_profiles?.is_available ? "success" : "neutral"} size="sm">
@@ -231,9 +231,10 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
     );
   }
 
-  const verifiedCount = doulas.filter(d => d.doula_profiles?.is_available).length;
-  const pendingCount = doulas.filter(d => !d.doula_profiles?.is_available).length;
-  const availableCount = doulas.filter(d => d.doula_profiles?.is_available).length;
+  const kpiTotal = doulaKpis?.total ?? count;
+  const kpiVerified = doulaKpis?.verified ?? 0;
+  const kpiPendingVerification = doulaKpis?.pendingVerification ?? 0;
+  const kpiAvailable = doulaKpis?.available ?? 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -259,9 +260,9 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
                 value={filters.isVerified === true ? "verified" : filters.isVerified === false ? "pending" : ""}
                 onChange={(v) => setFilters({ ...filters, isVerified: v === "verified" ? true : v === "pending" ? false : undefined })}
                 options={[
-                  { value: "", label: "All Status" },
+                  { value: "", label: "All verification" },
                   { value: "verified", label: "Verified" },
-                  { value: "pending", label: "Pending" },
+                  { value: "pending", label: "Pending verification" },
                 ]}
               />
             </div>
@@ -300,10 +301,10 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
             <Select
               value={filters.isVerified === true ? "verified" : filters.isVerified === false ? "pending" : ""}
               onChange={(v) => setFilters({ ...filters, isVerified: v === "verified" ? true : v === "pending" ? false : undefined })}
-              options={[
-                { value: "", label: "All Status" },
+                options={[
+                { value: "", label: "All verification" },
                 { value: "verified", label: "Verified" },
-                { value: "pending", label: "Pending" },
+                { value: "pending", label: "Pending verification" },
               ]}
             />
           </div>
@@ -324,16 +325,28 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               Clear
             </button>
           )}
+          <div style={{ marginLeft: "auto" }}>
+            <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)}>
+              Add Doula
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
-        <StatCard label="Total Doulas" value={count} icon={<Users size={18} />} color={PreggaColors.sage500} delay={0} />
-        <StatCard label="Verified" value={verifiedCount} icon={<Award size={18} />} color={PreggaColors.success500} delay={100} />
-        <StatCard label="Pending" value={pendingCount} icon={<Calendar size={18} />} color={PreggaColors.warning500} delay={200} />
-        <StatCard label="Available" value={availableCount} icon={<Check size={18} />} color={PreggaColors.info500} delay={300} />
+        <StatCard label="Total Doulas" value={kpiTotal} icon={<Users size={18} />} color={PreggaColors.sage500} delay={0} />
+        <StatCard label="Verified" value={kpiVerified} icon={<Award size={18} />} color={PreggaColors.success500} delay={100} />
+        <StatCard label="Pending verification" value={kpiPendingVerification} icon={<Calendar size={18} />} color={PreggaColors.warning500} delay={200} />
+        <StatCard label="Available" value={kpiAvailable} icon={<Check size={18} />} color={PreggaColors.info500} delay={300} />
       </div>
+
+      {/* Mobile Add Button */}
+      {isMobile && (
+        <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)} style={{ width: "100%" }}>
+          Add Doula
+        </Button>
+      )}
 
       {/* Data Table */}
       <DataTable
@@ -349,6 +362,16 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
         isMobile={isMobile}
         mobileCardRender={renderMobileCard}
         isLoading={isLoading}
+      />
+
+      {/* Add Doula Modal */}
+      <AddDoulaModal
+        open={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          refetch();
+          refetchDoulaKpis();
+        }}
       />
     </div>
   );
@@ -372,6 +395,9 @@ function DoulaDetailView({
   const [activeTab, setActiveTab] = useState<"profile" | "availability" | "clients" | "conversations" | "verification" | "deactivate">("profile");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [manageClient, setManageClient] = useState<{ id: string; name: string } | null>(null);
+  const [isUnassigning, setIsUnassigning] = useState(false);
   const [deactivateConfirmText, setDeactivateConfirmText] = useState("");
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
@@ -382,9 +408,9 @@ function DoulaDetailView({
     () => fetchDoulaById(doulaId)
   );
 
-  const { data: clients } = useSupabaseQuery<UserWithProfile[]>(
-    ['doula', doulaId, 'clients'],
-    () => fetchDoulaClients(doulaId),
+  const { data: assignments, refetch: refetchAssignments } = useSupabaseQuery<DoulaAssignmentWithUser[]>(
+    ['doula', doulaId, 'assignments'],
+    () => fetchDoulaAssignments(doulaId),
     { enabled: activeTab === 'clients' }
   );
 
@@ -475,12 +501,14 @@ function DoulaDetailView({
     );
   }
 
+  const isVerified = doula.doula_profiles?.is_verified === true;
+
   const tabs: Tab[] = [
     { id: "profile", label: "Profile", icon: <User size={15} /> },
     { id: "availability", label: "Availability", icon: <ToggleRight size={15} /> },
     { id: "clients", label: "Clients", icon: <Users size={15} /> },
     { id: "conversations", label: "Conversations", icon: <MessageCircle size={15} /> },
-    ...(!isAvailable ? [{ id: "verification", label: "Verification", icon: <Award size={15} /> }] : []),
+    ...(!isVerified ? [{ id: "verification", label: "Verification", icon: <Award size={15} /> }] : []),
     { id: "deactivate", label: "Deactivate", icon: <Trash2 size={15} /> },
   ];
 
@@ -492,18 +520,18 @@ function DoulaDetailView({
         subtitle={doula.email || doula.phone || "No contact info"}
         avatarUrl={doula.avatar_url}
         avatarFallback={doula.display_name || "Doula"}
-        avatarGradient={isAvailable 
+        avatarGradient={isVerified 
           ? [PreggaColors.sage400, PreggaColors.sage500] 
           : [PreggaColors.warning400, PreggaColors.warning500]}
         onGoBack={() => onGoBack?.()}
         action={<Button icon={<Pencil size={15} />} onClick={() => setShowEditModal(true)} size="sm">Edit</Button>}
         stats={[
-          { label: "Verification", value: isAvailable ? "Verified" : "Pending", highlight: isAvailable },
+          { label: "Verification", value: isVerified ? "Verified" : "Pending", highlight: isVerified },
           { label: "Availability", value: isAvailable ? "Available" : "Unavailable", highlight: isAvailable },
           { label: "Joined", value: formatDate(doula.created_at) },
         ]}
         isMobile={isMobile}
-        accentColor={isAvailable 
+        accentColor={isVerified 
           ? `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)` 
           : `linear-gradient(90deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`}
       />
@@ -607,55 +635,105 @@ function DoulaDetailView({
           <div style={{ padding: "16px", background: PreggaColors.neutral50, borderRadius: 8 }}>
             <div style={{ fontSize: 13, color: PreggaColors.neutral500, marginBottom: 4 }}>Push Token</div>
             <div style={{ fontSize: 14, color: PreggaColors.neutral700, wordBreak: "break-all" }}>
-              {doula.doula_profiles?.push_token || "No push token registered"}
+              {doula.push_token || "No push token registered"}
             </div>
           </div>
         </Card>
       )}
 
       {activeTab === "clients" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {clients && clients.length > 0 ? (
-            clients.map((client) => (
-              <div
-                key={client.id}
-                onClick={() => onViewClient?.(client.id)}
-                style={{
-                  background: PreggaColors.white,
-                  borderRadius: 12,
-                  padding: 16,
-                  border: `1px solid ${PreggaColors.secondary300}`,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = PreggaColors.neutral50;
-                  e.currentTarget.style.borderColor = PreggaColors.sage300;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = PreggaColors.white;
-                  e.currentTarget.style.borderColor = PreggaColors.secondary300;
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontWeight: 600, fontSize: 14 }}>
-                      {(client.display_name || "U").split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>{client.display_name || "Unnamed"}</div>
-                      <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{client.email || client.phone}</div>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onViewClient?.(client.id); }}>View</Button>
-                </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Assign Client button */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button icon={<UserPlus size={15} />} onClick={() => setShowAssignModal(true)} size="sm">
+              Assign Client
+            </Button>
+          </div>
+
+          {/* Assigned Clients */}
+          {assignments && assignments.length > 0 && (
+            <Card padding="0">
+              <div style={{ padding: "16px 20px", borderBottom: `1px solid ${PreggaColors.neutral100}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: PreggaColors.neutral900, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Link2 size={15} />
+                  Assigned Clients ({assignments.length})
+                </h4>
               </div>
-            ))
-          ) : (
-            <Card padding="40px">
-              <div style={{ textAlign: "center", color: PreggaColors.neutral400 }}>
-                <Users size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
-                <div>No clients assigned</div>
+              <div>
+                {assignments.map((assignment, idx) => {
+                  const user = assignment.user;
+                  return (
+                    <div
+                      key={assignment.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "14px 20px",
+                        borderBottom: idx < assignments.length - 1 ? `1px solid ${PreggaColors.neutral100}` : "none",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => onViewClient?.(user.id)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary600, fontWeight: 600, fontSize: 14, overflow: "hidden" }}>
+                          {user.avatar_url ? (
+                            <img src={user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            (user.display_name || "U").split(" ").map((n) => n[0]).join("").slice(0, 2)
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>{user.display_name || "Unnamed"}</div>
+                          <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
+                            {user.email || user.phone || "No contact"}
+                            {assignment.assigned_at ? ` · Assigned ${formatDate(assignment.assigned_at)}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Badge variant="sage" size="sm">Assigned</Badge>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setManageClient({ id: user.id, name: user.display_name || "this client" });
+                          }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: PreggaColors.neutral400,
+                            padding: 6,
+                            borderRadius: 6,
+                            display: "flex",
+                            transition: "all 0.15s",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = PreggaColors.error500; e.currentTarget.style.background = PreggaColors.error50; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = PreggaColors.neutral400; e.currentTarget.style.background = "none"; }}
+                          title="Manage client"
+                        >
+                          <UserMinus size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {(!assignments || assignments.length === 0) && (
+            <Card padding="48px">
+              <div style={{ textAlign: "center" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: PreggaColors.neutral100, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                  <Users size={24} color={PreggaColors.neutral400} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 500, color: PreggaColors.neutral600 }}>No clients yet</div>
+                <div style={{ fontSize: 13, color: PreggaColors.neutral400, marginTop: 4, marginBottom: 16 }}>Assign clients to this doula so they can broadcast</div>
+                <Button icon={<UserPlus size={15} />} onClick={() => setShowAssignModal(true)} size="sm">
+                  Assign Client
+                </Button>
               </div>
             </Card>
           )}
@@ -705,7 +783,7 @@ function DoulaDetailView({
         </div>
       )}
 
-      {activeTab === "verification" && !isAvailable && (
+      {activeTab === "verification" && !isVerified && (
         <Card padding="24px">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: PreggaColors.warning50, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -722,7 +800,7 @@ function DoulaDetailView({
                 <Button onClick={handleVerify} icon={<Check size={16} />}>
                   Verify Doula
                 </Button>
-                <Button variant="outline" onClick={handleReject} icon={<XCircle size={16} />} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+                <Button variant="outline" onClick={handleReject} icon={<XCircle size={16} />} style={{ border: `1px solid ${PreggaColors.error300}`, color: PreggaColors.error600 }}>
                   Reject
                 </Button>
               </div>
@@ -848,7 +926,7 @@ function DoulaDetailView({
         onClose={() => setShowEditModal(false)}
         onSave={async (data) => {
           try {
-            await updateDoulaProfile(doula.id, data.profile, data.doula);
+            await updateDoulaProfile(doula.id, data.profile, data.doula ?? undefined);
             toast.success("Profile updated");
             refetch();
             setShowEditModal(false);
@@ -857,6 +935,102 @@ function DoulaDetailView({
           }
         }}
       />
+
+      <AssignClientsModal
+        open={showAssignModal}
+        onClose={() => { setShowAssignModal(false); refetchAssignments(); }}
+        doulaId={doulaId}
+        doulaName={doula.display_name || "this doula"}
+      />
+
+      {/* Manage Client Modal */}
+      <Modal
+        open={!!manageClient}
+        onClose={() => { setManageClient(null); setIsUnassigning(false); }}
+        title="Manage Client"
+        width={440}
+        footer={
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            <Button variant="outline" onClick={() => setManageClient(null)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                if (!manageClient) return;
+                setIsUnassigning(true);
+                try {
+                  await unassignClientFromDoula(doulaId, manageClient.id);
+                  toast.success("Client unassigned successfully");
+                  setManageClient(null);
+                  refetchAssignments();
+                } catch (err) {
+                  toast.error(friendlyError(err));
+                } finally {
+                  setIsUnassigning(false);
+                }
+              }}
+              loading={isUnassigning}
+              style={{ background: PreggaColors.error500 }}
+            >
+              Unassign Client
+            </Button>
+          </div>
+        }
+      >
+        {manageClient && (
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral500, marginBottom: 6 }}>Client</div>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: 10,
+                  background: PreggaColors.neutral50,
+                  border: `1px solid ${PreggaColors.neutral200}`,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: PreggaColors.neutral900,
+                }}
+              >
+                {manageClient.name}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral500, marginBottom: 6 }}>Doula</div>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: 10,
+                  background: PreggaColors.neutral50,
+                  border: `1px solid ${PreggaColors.neutral200}`,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: PreggaColors.neutral900,
+                }}
+              >
+                {doula.display_name || "Unknown"}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "14px 16px",
+                background: PreggaColors.error50,
+                borderRadius: 10,
+                border: `1px solid ${PreggaColors.error100}`,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+              }}
+            >
+              <AlertTriangle size={18} color={PreggaColors.error500} style={{ flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 13, color: PreggaColors.neutral700, lineHeight: 1.5 }}>
+                This will remove <strong>{manageClient.name}</strong> from <strong>{doula.display_name || "this doula"}</strong>'s assigned clients.
+                The client will no longer be able to broadcast to this doula.
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

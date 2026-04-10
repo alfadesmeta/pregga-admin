@@ -33,10 +33,14 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
     base: {
       background: PreggaColors.accent50,
       color: PreggaColors.accent700,
-      border: `1px solid ${PreggaColors.accent200}`,
+      borderWidth: 1,
+      borderStyle: "solid",
+      borderColor: PreggaColors.accent200,
     },
     hover: {
       background: PreggaColors.accent100,
+      borderWidth: 1,
+      borderStyle: "solid",
       borderColor: PreggaColors.accent300,
     },
   },
@@ -44,10 +48,14 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
     base: {
       background: "transparent",
       color: PreggaColors.neutral700,
-      border: `1px solid ${PreggaColors.neutral200}`,
+      borderWidth: 1,
+      borderStyle: "solid",
+      borderColor: PreggaColors.neutral200,
     },
     hover: {
       background: PreggaColors.neutral50,
+      borderWidth: 1,
+      borderStyle: "solid",
       borderColor: PreggaColors.neutral300,
       color: PreggaColors.neutral900,
     },

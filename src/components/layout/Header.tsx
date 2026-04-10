@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
 import { PreggaColors } from "../../theme/colors";
 import { Search, Menu, Calendar, RefreshCw } from "lucide-react";

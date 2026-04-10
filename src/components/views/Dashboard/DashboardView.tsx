@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useCountUp, useSupabaseQuery } from "../../../hooks";
-import { PreggaColors, PreggaShadows } from "../../../theme/colors";
+import { PreggaColors } from "../../../theme/colors";
 import { Card } from "../../ui/Card";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
@@ -13,7 +13,6 @@ import {
   UserPlus,
   CheckCircle,
   CreditCard,
-  Circle,
   AlertCircle,
 } from "lucide-react";
 import {
@@ -32,6 +31,7 @@ import {
   fetchDailyRegistrations,
   type DashboardStats,
 } from "../../../lib/api";
+import { formatTimeAgo } from "../../../lib/formatTime";
 import type { UserWithProfile, DoulaWithProfile } from "../../../types/database";
 
 interface DashboardViewProps {
@@ -41,20 +41,6 @@ interface DashboardViewProps {
 }
 
 const chartLineColor = PreggaColors.sage500;
-const chartFillColor = PreggaColors.sage100;
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case "online":
-      return "#10B981";
-    case "busy":
-      return "#F59E0B";
-    case "offline":
-      return "#9CA3AF";
-    default:
-      return "#9CA3AF";
-  }
-}
 
 function getActivityIcon(type: string) {
   switch (type) {
@@ -88,21 +74,6 @@ function getActivityColor(type: string) {
     default:
       return PreggaColors.neutral400;
   }
-}
-
-function formatTimeAgo(date: string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return then.toLocaleDateString();
 }
 
 interface ShimmerProps {
@@ -441,7 +412,7 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onNavigateToSubView?.("Doula Management", doula.id)}
+                      onClick={() => onNavigateToSubView?.("Doulas", doula.id)}
                     >
                       Review
                     </Button>

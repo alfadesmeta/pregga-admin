@@ -3,9 +3,10 @@ import { Toaster } from "react-hot-toast";
 import { LoginPage } from "./components/auth";
 import { PreggaAdminDashboard } from "./PreggaAdminDashboard";
 import { supabase } from "./lib/supabase";
+import { disconnectStreamClient } from "./lib/streamChat";
 import { friendlyError } from "./lib/errors";
 import { PreggaColors } from "./theme/colors";
-import type { User, Session } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import type { Profile } from "./types/database";
 
 const toasterConfig = {
@@ -123,6 +124,7 @@ function App() {
   }
 
   async function handleSignOut() {
+    await disconnectStreamClient();
     await supabase.auth.signOut();
     setAuthState({ user: null, profile: null, isLoading: false });
     window.location.hash = "";

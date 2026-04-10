@@ -17,7 +17,7 @@ interface SettingsViewProps {
   profile: Profile;
 }
 
-export function SettingsView({ isMobile, user, profile }: SettingsViewProps) {
+export function SettingsView({ isMobile, profile }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<"profile" | "password">("profile");
 
   return (

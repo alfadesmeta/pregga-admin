@@ -90,6 +90,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
         conversations: "Conversations",
         broadcasts: "Broadcasts",
         content: "Weekly Content",
+        "weekly-content": "Weekly Content",
         subscriptions: "Subscriptions",
         settings: "Settings",
       };
@@ -161,7 +162,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             isMobile={isMobile}
             subView={subView}
             onNavigateToSubView={navigateToSubView}
-            onGoBack={goBack}
+            onGoBack={handleGoBackWithReturn}
           />
         );
       case "Broadcasts":

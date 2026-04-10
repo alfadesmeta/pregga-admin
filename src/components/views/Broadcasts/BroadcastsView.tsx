@@ -5,7 +5,7 @@ import { PreggaColors } from "../../../theme/colors";
 import { Card } from "../../ui/Card";
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
-import { Badge, StatusBadge } from "../../ui/Badge";
+import { Badge } from "../../ui/Badge";
 import { DataTable } from "../../ui/DataTable";
 import { Select } from "../../ui/Select";
 import { Modal } from "../../ui/Modal";
@@ -13,10 +13,12 @@ import { ShimmerKPICard } from "../../ui/Shimmer";
 import {
   fetchBroadcasts,
   fetchBroadcastById,
+  fetchBroadcastStatusCounts,
   cancelBroadcast,
   renotifyDoulas,
   type BroadcastFilters,
 } from "../../../lib/api";
+import { formatTimeAgo } from "../../../lib/formatTime";
 import { friendlyError } from "../../../lib/errors";
 import type { BroadcastWithDetails, BroadcastStatus } from "../../../types/database";
 import {
@@ -42,25 +44,6 @@ interface BroadcastsViewProps {
   onGoBack?: () => void;
   onNavigateToUser?: (userId: string) => void;
   onNavigateToDoula?: (doulaId: string) => void;
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatTimeAgo(date: string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatDate(date);
 }
 
 function getStatusBadgeVariant(status: BroadcastStatus): "sage" | "warning" | "neutral" | "rose" {
@@ -94,9 +77,14 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
     { pageSize: 10 }
   );
 
-  const pendingCount = broadcasts.filter(b => b.status === 'pending').length;
-  const acceptedCount = broadcasts.filter(b => b.status === 'accepted').length;
-  const expiredCount = broadcasts.filter(b => b.status === 'expired').length;
+  const { data: statusCounts } = useSupabaseQuery(
+    ['broadcasts', 'status-counts'],
+    () => fetchBroadcastStatusCounts()
+  );
+
+  const pendingCount = statusCounts?.pending ?? 0;
+  const acceptedCount = statusCounts?.accepted ?? 0;
+  const expiredCount = statusCounts?.expired ?? 0;
 
   const hasActiveFilters = searchQuery || filters.status;
 
@@ -176,7 +164,7 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
       label: "Notified",
       render: (_: unknown, broadcast: BroadcastWithDetails) => (
         <span style={{ fontSize: 14, color: PreggaColors.neutral700 }}>
-          {broadcast.notified_doulas?.length || 0} doulas
+          {broadcast.notified_doula_ids?.length || 0} doulas
         </span>
       ),
     },
@@ -296,7 +284,7 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
               {broadcast.initial_message && broadcast.initial_message.length > 80 ? "..." : ""}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: PreggaColors.neutral500 }}>
-              <span>{broadcast.notified_doulas?.length || 0} doulas notified</span>
+              <span>{broadcast.notified_doula_ids?.length || 0} doulas notified</span>
               <span>{broadcast.rejections?.length || 0} rejections</span>
             </div>
           </div>
@@ -416,7 +404,7 @@ function BroadcastDetailView({
         onGoBack={onGoBack}
         stats={[
           { label: "Status", value: broadcast.status.replace('_', ' '), highlight: broadcast.status === 'accepted' },
-          { label: "Notified", value: `${broadcast.notified_doulas?.length || 0} doulas` },
+          { label: "Notified", value: `${broadcast.notified_doula_ids?.length || 0} doulas` },
           { label: "Rejections", value: String(broadcast.rejections?.length || 0) },
           { label: "Created", value: formatTimeAgo(broadcast.created_at) },
         ]}
@@ -582,7 +570,7 @@ function BroadcastDetailView({
                         <span style={{ fontWeight: 500 }}>{rejection.doula?.display_name || "Unknown Doula"}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.created_at)}</span>
+                        <span style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{formatTimeAgo(rejection.rejected_at)}</span>
                         {rejection.doula?.id && onNavigateToDoula && (
                           <span style={{ color: PreggaColors.neutral400, fontSize: 11 }}>→</span>
                         )}
@@ -621,7 +609,7 @@ function BroadcastDetailView({
               <Button onClick={handleRenotify} loading={isProcessing} icon={<Bell size={16} />}>
                 Re-notify Doulas
               </Button>
-              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ border: `1px solid ${PreggaColors.error300}`, color: PreggaColors.error600 }}>
                 <XCircle size={16} />
                 Cancel Broadcast
               </Button>

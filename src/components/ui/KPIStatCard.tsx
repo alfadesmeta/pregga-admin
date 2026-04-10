@@ -108,7 +108,7 @@ export function KPIStatCard({
         border: `1px solid ${hovered && onClick ? PreggaColors.sage400 : PreggaColors.secondary300}`,
         padding: "18px 20px",
         cursor: onClick ? "pointer" : "default",
-        transition: PreggaTransitions.default,
+        transition: PreggaTransitions.normal,
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(8px)",
         boxShadow: hovered && onClick ? "0 4px 12px rgba(107, 127, 95, 0.12)" : "none",

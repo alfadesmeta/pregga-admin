@@ -27,13 +27,15 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function getPlanLabel(plan: SubscriptionPlan): string {
-  const labels: Record<SubscriptionPlan, string> = {
+function getPlanLabel(plan: SubscriptionPlan | null | undefined): string {
+  if (!plan) return "Unknown";
+  const labels: Record<string, string> = {
     monthly: "Monthly",
     pregnancy_postpartum: "Pregnancy + Postpartum",
     yearly: "Yearly",
+    six_months: "6 Months",
   };
-  return labels[plan] || plan;
+  return labels[plan] || plan.replace('_', ' ');
 }
 
 export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGoBack }: SubscriptionsViewProps) {
@@ -92,10 +94,10 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
         </div>
       ),
     },
-    { key: "plan", label: "Plan", render: (_: unknown, sub: Subscription & { user: Profile }) => <Badge variant="sage">{getPlanLabel(sub.plan)}</Badge> },
-    { key: "status", label: "Status", render: (_: unknown, sub: Subscription & { user: Profile }) => <StatusBadge status={sub.status} /> },
-    { key: "starts_at", label: "Start Date", render: (_: unknown, sub: Subscription & { user: Profile }) => <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{formatDate(sub.starts_at)}</span> },
-    { key: "ends_at", label: "End Date", render: (_: unknown, sub: Subscription & { user: Profile }) => <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{sub.ends_at ? formatDate(sub.ends_at) : "Ongoing"}</span> },
+    { key: "plan_type", label: "Plan", render: (_: unknown, sub: Subscription & { user: Profile }) => <Badge variant="sage">{getPlanLabel(sub.plan_type)}</Badge> },
+    { key: "status", label: "Status", render: (_: unknown, sub: Subscription & { user: Profile }) => <StatusBadge status={sub.status ?? "expired"} /> },
+    { key: "purchased_at", label: "Start Date", render: (_: unknown, sub: Subscription & { user: Profile }) => <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{sub.purchased_at ? formatDate(sub.purchased_at) : "—"}</span> },
+    { key: "expiration_at", label: "End Date", render: (_: unknown, sub: Subscription & { user: Profile }) => <span style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{sub.expiration_at ? formatDate(sub.expiration_at) : "Ongoing"}</span> },
     { key: "actions", label: "", render: (_: unknown, sub: Subscription & { user: Profile }) => <Button variant="outline" size="sm" onClick={() => handleSelectSubscription(sub.id)}>View</Button> },
   ];
 
@@ -123,7 +125,7 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
           <Input placeholder="Search by user..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search size={16} />} showClear onClear={() => setSearchQuery("")} />
         </div>
         <div style={{ width: 150 }}>
-          <Select value={filters.plan || ""} onChange={(v) => setFilters({ ...filters, plan: v as SubscriptionPlan || undefined })} options={[{ value: "", label: "All Plans" }, { value: "monthly", label: "Monthly" }, { value: "pregnancy_postpartum", label: "Pregnancy + Postpartum" }, { value: "yearly", label: "Yearly" }]} />
+          <Select value={filters.plan || ""} onChange={(v) => setFilters({ ...filters, plan: v as SubscriptionPlan || undefined })} options={[{ value: "", label: "All Plans" }, { value: "monthly", label: "Monthly" }, { value: "pregnancy_postpartum", label: "Pregnancy + Postpartum" }, { value: "yearly", label: "Yearly" }, { value: "six_months", label: "6 Months" }]} />
         </div>
         <div style={{ width: 130 }}>
           <Select value={filters.status || ""} onChange={(v) => setFilters({ ...filters, status: v as SubscriptionStatus || undefined })} options={[{ value: "", label: "All Status" }, { value: "active", label: "Active" }, { value: "trial", label: "Trial" }, { value: "cancelled", label: "Cancelled" }, { value: "expired", label: "Expired" }]} />
@@ -144,14 +146,14 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
               </div>
               <div>
                 <div style={{ fontWeight: 500, fontSize: 14 }}>{sub.user?.display_name || "Unknown"}</div>
-                <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{getPlanLabel(sub.plan)}</div>
+                <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{getPlanLabel(sub.plan_type)}</div>
               </div>
             </div>
-            <StatusBadge status={sub.status} />
+            <StatusBadge status={sub.status ?? "expired"} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: PreggaColors.neutral500 }}>
-            <span>Start: {formatDate(sub.starts_at)}</span>
-            <span>End: {sub.ends_at ? formatDate(sub.ends_at) : "Ongoing"}</span>
+            <span>Start: {sub.purchased_at ? formatDate(sub.purchased_at) : "—"}</span>
+            <span>End: {sub.expiration_at ? formatDate(sub.expiration_at) : "Ongoing"}</span>
           </div>
         </div>
       )} />
@@ -230,10 +232,10 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
         avatarIcon={<User size={24} />}
         onGoBack={onGoBack}
         stats={[
-          { label: "Plan", value: getPlanLabel(subscription.plan), highlight: true },
-          { label: "Status", value: subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1), highlight: subscription.status === 'active' },
-          { label: "Start Date", value: formatDate(subscription.starts_at) },
-          { label: "End Date", value: subscription.ends_at ? formatDate(subscription.ends_at) : "Ongoing" },
+          { label: "Plan", value: getPlanLabel(subscription.plan_type), highlight: true },
+          { label: "Status", value: subscription.status ? subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1) : "Unknown", highlight: subscription.status === 'active' },
+          { label: "Start Date", value: subscription.purchased_at ? formatDate(subscription.purchased_at) : "—" },
+          { label: "End Date", value: subscription.expiration_at ? formatDate(subscription.expiration_at) : "Ongoing" },
         ]}
         isMobile={isMobile}
         accentColor={`linear-gradient(90deg, ${getStatusGradient()[0]} 0%, ${getStatusGradient()[1]} 100%)`}
@@ -268,19 +270,19 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
               <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
                 <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Plan</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{getPlanLabel(subscription.plan)}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{getPlanLabel(subscription.plan_type)}</div>
               </div>
               <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
                 <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Status</div>
-                <div style={{ marginTop: 4 }}><StatusBadge status={subscription.status} /></div>
+                <div style={{ marginTop: 4 }}><StatusBadge status={subscription.status ?? "expired"} /></div>
               </div>
               <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
                 <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>Start Date</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{formatDate(subscription.starts_at)}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{subscription.purchased_at ? formatDate(subscription.purchased_at) : "—"}</div>
               </div>
               <div style={{ padding: 16, background: PreggaColors.neutral50, borderRadius: 10 }}>
                 <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 4 }}>End Date</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{subscription.ends_at ? formatDate(subscription.ends_at) : "Ongoing"}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900 }}>{subscription.expiration_at ? formatDate(subscription.expiration_at) : "Ongoing"}</div>
               </div>
             </div>
           </div>
@@ -300,7 +302,7 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Button icon={<Calendar size={16} />} onClick={() => setShowExtendModal(true)}>Extend Subscription</Button>
-              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ border: `1px solid ${PreggaColors.error300}`, color: PreggaColors.error600 }}>
                 <XCircle size={16} />
                 Cancel Subscription
               </Button>

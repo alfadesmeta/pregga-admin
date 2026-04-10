@@ -1,7 +1,6 @@
 import React from "react";
-import { PreggaColors, PreggaShadows } from "../../theme/colors";
+import { PreggaColors } from "../../theme/colors";
 import { Card } from "./Card";
-import { Button } from "./Button";
 import { ArrowLeft } from "lucide-react";
 
 interface StatItemProps {
@@ -131,7 +130,7 @@ export function DetailHeader({
               style={{
                 width: 56,
                 height: 56,
-                borderRadius: 14,
+                borderRadius: "50%",
                 background: `linear-gradient(135deg, ${avatarGradient[0]} 0%, ${avatarGradient[1]} 100%)`,
                 display: "flex",
                 alignItems: "center",

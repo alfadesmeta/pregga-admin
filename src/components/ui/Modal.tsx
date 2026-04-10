@@ -25,7 +25,7 @@ export function Modal({
   width = 480,
   footer,
   closeOnOverlayClick = false,
-  closeOnEscape = true,
+  closeOnEscape = false,
   showCloseButton = true,
 }: ModalProps) {
   const handleEscapeKey = useCallback(

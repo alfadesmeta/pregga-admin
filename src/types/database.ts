@@ -1,7 +1,7 @@
 export type UserRole = 'pregnant' | 'doula' | 'admin';
-export type AuthProvider = 'phone' | 'email' | 'apple' | 'google';
+export type AuthProvider = 'email' | 'apple' | 'google';
 export type BroadcastStatus = 'pending' | 'accepted' | 'cancelled' | 'expired' | 'no_doulas';
-export type SubscriptionPlan = 'monthly' | 'pregnancy_postpartum' | 'yearly';
+export type SubscriptionPlan = 'monthly' | 'pregnancy_postpartum' | 'yearly' | 'six_months';
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired' | 'trial';
 
 export interface Profile {
@@ -39,6 +39,7 @@ export interface DoulaProfile {
   expertise: string[] | null;
   is_online: boolean | null;
   is_available: boolean | null;
+  is_verified: boolean | null;
   rating_avg: number | null;
   rating_count: number | null;
   last_seen_at: string | null;
@@ -128,19 +129,6 @@ export interface DeletionRequest {
   completed_at: string | null;
 }
 
-export interface Message {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-  read_at: string | null;
-}
-
-export interface MessageWithSender extends Message {
-  sender: Profile;
-}
-
 export interface UserWithProfile extends Profile {
   pregnant_profiles: PregnantProfile | null;
   subscriptions: Subscription[];
@@ -159,4 +147,17 @@ export interface BroadcastWithDetails extends BroadcastRequest {
   user: Profile;
   accepted_doula: Profile | null;
   rejections: (BroadcastRejection & { doula: Profile })[];
+}
+
+export interface DoulaAssignment {
+  id: string;
+  doula_id: string;
+  user_id: string;
+  assigned_by: string | null;
+  assigned_at: string;
+  notes: string | null;
+}
+
+export interface DoulaAssignmentWithUser extends DoulaAssignment {
+  user: Profile & { pregnant_profiles?: PregnantProfile | null };
 }

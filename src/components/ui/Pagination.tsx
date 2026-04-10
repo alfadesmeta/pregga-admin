@@ -33,7 +33,9 @@ export function Pagination({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 6,
-    border: `1px solid ${PreggaColors.neutral200}`,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: PreggaColors.neutral200,
     background: PreggaColors.white,
     cursor: "pointer",
     color: PreggaColors.neutral600,
@@ -41,8 +43,10 @@ export function Pagination({
     fontFamily: "'Inter', -apple-system, sans-serif",
   };
 
-  const buttonHover = {
+  const buttonHover: React.CSSProperties = {
     background: PreggaColors.neutral50,
+    borderWidth: 1,
+    borderStyle: "solid",
     borderColor: PreggaColors.neutral300,
   };
 
@@ -56,6 +60,8 @@ export function Pagination({
     ...buttonBase,
     background: PreggaColors.accent500,
     color: PreggaColors.white,
+    borderWidth: 1,
+    borderStyle: "solid",
     borderColor: PreggaColors.accent500,
     fontWeight: 600,
   };
@@ -154,6 +160,8 @@ export function Pagination({
             onMouseLeave={(e) => {
               if (currentPage !== 1) {
                 e.currentTarget.style.background = PreggaColors.white;
+                e.currentTarget.style.borderWidth = "1px";
+                e.currentTarget.style.borderStyle = "solid";
                 e.currentTarget.style.borderColor = PreggaColors.neutral200;
               }
             }}
@@ -172,6 +180,8 @@ export function Pagination({
           onMouseLeave={(e) => {
             if (currentPage !== 1) {
               e.currentTarget.style.background = PreggaColors.white;
+              e.currentTarget.style.borderWidth = "1px";
+              e.currentTarget.style.borderStyle = "solid";
               e.currentTarget.style.borderColor = PreggaColors.neutral200;
             }
           }}
@@ -205,6 +215,8 @@ export function Pagination({
                 onMouseLeave={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.background = PreggaColors.white;
+                    e.currentTarget.style.borderWidth = "1px";
+                    e.currentTarget.style.borderStyle = "solid";
                     e.currentTarget.style.borderColor = PreggaColors.neutral200;
                   }
                 }}
@@ -225,6 +237,8 @@ export function Pagination({
           onMouseLeave={(e) => {
             if (currentPage !== totalPages && totalPages !== 0) {
               e.currentTarget.style.background = PreggaColors.white;
+              e.currentTarget.style.borderWidth = "1px";
+              e.currentTarget.style.borderStyle = "solid";
               e.currentTarget.style.borderColor = PreggaColors.neutral200;
             }
           }}
@@ -244,6 +258,8 @@ export function Pagination({
             onMouseLeave={(e) => {
               if (currentPage !== totalPages && totalPages !== 0) {
                 e.currentTarget.style.background = PreggaColors.white;
+                e.currentTarget.style.borderWidth = "1px";
+                e.currentTarget.style.borderStyle = "solid";
                 e.currentTarget.style.borderColor = PreggaColors.neutral200;
               }
             }}

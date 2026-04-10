@@ -10,7 +10,6 @@ type TableName =
   | 'broadcast_requests'
   | 'broadcast_rejections'
   | 'conversations'
-  | 'messages'
   | 'subscriptions'
   | 'weekly_content'
   | 'app_config'
@@ -47,10 +46,6 @@ const TABLE_CACHE_MAPPINGS: TableCacheMapping[] = [
     invalidatePatterns: ['conversations', 'chat', 'dashboard'] 
   },
   { 
-    table: 'messages', 
-    invalidatePatterns: ['messages', 'chat', 'conversations'] 
-  },
-  { 
     table: 'subscriptions', 
     invalidatePatterns: ['subscriptions', 'users', 'dashboard'] 
   },
@@ -77,7 +72,9 @@ export function useRealtimeSync(): void {
           'postgres_changes',
           { event: '*', schema: 'public', table },
           (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-            console.log(`[Realtime] ${table} ${payload.eventType}:`, payload);
+            if (import.meta.env.DEV) {
+              console.debug(`[Realtime] ${table} ${payload.eventType}`);
+            }
             invalidatePatterns.forEach((pattern) => {
               invalidateCache(pattern);
             });

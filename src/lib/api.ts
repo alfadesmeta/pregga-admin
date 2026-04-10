@@ -4,7 +4,6 @@ import type {
   PregnantProfile,
   DoulaProfile,
   BroadcastRequest,
-  Conversation,
   Subscription,
   WeeklyContent,
   AppConfig,
@@ -15,7 +14,42 @@ import type {
   BroadcastStatus,
   SubscriptionPlan,
   SubscriptionStatus,
+  DoulaAssignmentWithUser,
 } from '../types/database';
+
+/** Cached: false when `is_verified` is not usable (missing column, bad filter, etc.). */
+let cachedDoulaHasIsVerifiedColumn: boolean | null = null;
+let doulaIsVerifiedProbe: Promise<boolean> | null = null;
+
+function doulaProfilesHasIsVerifiedColumn(): Promise<boolean> {
+  if (cachedDoulaHasIsVerifiedColumn !== null) {
+    return Promise.resolve(cachedDoulaHasIsVerifiedColumn);
+  }
+  if (!doulaIsVerifiedProbe) {
+    doulaIsVerifiedProbe = (async () => {
+      const { error } = await supabase.from('doula_profiles').select('is_verified').limit(1);
+      if (!error) {
+        cachedDoulaHasIsVerifiedColumn = true;
+        return true;
+      }
+      const m = `${error.message || ''} ${(error as { details?: string }).details || ''}`.toLowerCase();
+      const authOnly =
+        error.code === 'PGRST301' ||
+        m.includes('jwt') ||
+        m.includes('not authorized') ||
+        m.includes('permission denied');
+      if (authOnly) {
+        cachedDoulaHasIsVerifiedColumn = true;
+        return true;
+      }
+      cachedDoulaHasIsVerifiedColumn = false;
+      return false;
+    })().finally(() => {
+      doulaIsVerifiedProbe = null;
+    });
+  }
+  return doulaIsVerifiedProbe;
+}
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -44,6 +78,7 @@ export interface DoulaFilters {
   search?: string;
   isAvailable?: boolean;
   isOnline?: boolean;
+  isVerified?: boolean;
 }
 
 export interface ConversationFilters {
@@ -312,16 +347,48 @@ export async function fetchDoulas(
   to: number,
   filters?: DoulaFilters
 ): Promise<PaginatedResponse<DoulaWithProfile>> {
+  const needsInnerJoin =
+    filters?.isAvailable !== undefined ||
+    filters?.isVerified !== undefined ||
+    filters?.isOnline !== undefined;
+
+  const hasIsVerifiedCol =
+    filters?.isVerified === undefined ? true : await doulaProfilesHasIsVerifiedColumn();
+
   let query = supabase
     .from('profiles')
-    .select(`
-      *,
-      doula_profiles (*)
-    `, { count: 'exact' })
+    .select(
+      needsInnerJoin ? `*, doula_profiles!inner(*)` : `*, doula_profiles (*)`,
+      { count: 'exact' }
+    )
     .eq('user_role', 'doula');
 
   if (filters?.search) {
-    query = query.or(`display_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`);
+    query = query.or(
+      `display_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
+    );
+  }
+
+  if (filters?.isAvailable !== undefined) {
+    query = query.eq('doula_profiles.is_available', filters.isAvailable);
+  }
+
+  if (filters?.isOnline !== undefined) {
+    query = query.eq('doula_profiles.is_online', filters.isOnline);
+  }
+
+  if (filters?.isVerified === true) {
+    if (hasIsVerifiedCol) {
+      query = query.eq('doula_profiles.is_verified', true);
+    } else {
+      query = query.eq('doula_profiles.is_available', true);
+    }
+  } else if (filters?.isVerified === false) {
+    if (hasIsVerifiedCol) {
+      query = query.or('is_verified.is.null,is_verified.eq.false', { foreignTable: 'doula_profiles' });
+    } else {
+      query = query.eq('doula_profiles.is_available', false);
+    }
   }
 
   const { data, error, count } = await query
@@ -330,13 +397,60 @@ export async function fetchDoulas(
 
   if (error) throw error;
 
-  let result = data as DoulaWithProfile[];
-  
-  if (filters?.isAvailable !== undefined) {
-    result = result.filter(d => d.doula_profiles?.is_available === filters.isAvailable);
+  return { data: (data as DoulaWithProfile[]) || [], count: count ?? 0 };
+}
+
+export async function fetchDoulaKpiCounts(): Promise<{
+  total: number;
+  verified: number;
+  pendingVerification: number;
+  available: number;
+}> {
+  const hasCol = await doulaProfilesHasIsVerifiedColumn();
+  const [totalRes, availableRes] = await Promise.all([
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('user_role', 'doula'),
+    supabase.from('doula_profiles').select('id', { count: 'exact', head: true }).eq('is_available', true),
+  ]);
+
+  if (!hasCol) {
+    const { count: doulaProfileRows } = await supabase
+      .from('doula_profiles')
+      .select('id', { count: 'exact', head: true });
+    return {
+      total: totalRes.count ?? 0,
+      verified: 0,
+      pendingVerification: doulaProfileRows ?? 0,
+      available: availableRes.count ?? 0,
+    };
   }
 
-  return { data: result, count: count || 0 };
+  const [verifiedRes, pendingRes] = await Promise.all([
+    supabase.from('doula_profiles').select('id', { count: 'exact', head: true }).eq('is_verified', true),
+    supabase
+      .from('doula_profiles')
+      .select('id', { count: 'exact', head: true })
+      .or('is_verified.is.null,is_verified.eq.false'),
+  ]);
+
+  if (verifiedRes.error || pendingRes.error) {
+    cachedDoulaHasIsVerifiedColumn = false;
+    const { count: doulaProfileRows } = await supabase
+      .from('doula_profiles')
+      .select('id', { count: 'exact', head: true });
+    return {
+      total: totalRes.count ?? 0,
+      verified: 0,
+      pendingVerification: doulaProfileRows ?? 0,
+      available: availableRes.count ?? 0,
+    };
+  }
+
+  return {
+    total: totalRes.count ?? 0,
+    verified: verifiedRes.count ?? 0,
+    pendingVerification: pendingRes.count ?? 0,
+    available: availableRes.count ?? 0,
+  };
 }
 
 export async function fetchDoulaById(id: string): Promise<DoulaWithProfile | null> {
@@ -443,6 +557,106 @@ export async function fetchDoulaConversations(doulaId: string): Promise<Conversa
 }
 
 // ============================================
+// DOULA ASSIGNMENT APIs
+// ============================================
+
+export async function createDoula(data: {
+  email: string;
+  displayName: string;
+  phone?: string;
+  bio?: string;
+  yearsExperience?: string;
+  expertise?: string[];
+}): Promise<string> {
+  const { data: result, error } = await supabase.functions.invoke("create-doula", {
+    body: {
+      email: data.email,
+      displayName: data.displayName,
+      phone: data.phone,
+      bio: data.bio,
+      yearsExperience: data.yearsExperience,
+      expertise: data.expertise || [],
+    },
+  });
+
+  if (error) throw new Error("Network error. Please try again.");
+  if (!result?.success) throw new Error(result?.message || "Failed to create doula");
+
+  return result.userId;
+}
+
+export async function fetchDoulaAssignments(doulaId: string): Promise<DoulaAssignmentWithUser[]> {
+  const { data, error } = await supabase
+    .from('doula_assignments')
+    .select(`
+      *,
+      user:profiles!doula_assignments_user_id_fkey (
+        *,
+        pregnant_profiles (*)
+      )
+    `)
+    .eq('doula_id', doulaId)
+    .order('assigned_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as DoulaAssignmentWithUser[];
+}
+
+export async function assignClientToDoula(doulaId: string, userId: string): Promise<void> {
+  const { data: { user: caller } } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('doula_assignments')
+    .insert({
+      doula_id: doulaId,
+      user_id: userId,
+      assigned_by: caller?.id || null,
+    });
+
+  if (error) {
+    if (error.code === '23505') throw new Error('Client is already assigned to this doula');
+    throw error;
+  }
+}
+
+export async function unassignClientFromDoula(doulaId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('doula_assignments')
+    .delete()
+    .eq('doula_id', doulaId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+export async function fetchUnassignedUsers(doulaId: string, search?: string): Promise<UserWithProfile[]> {
+  const { data: assigned } = await supabase
+    .from('doula_assignments')
+    .select('user_id')
+    .eq('doula_id', doulaId);
+
+  const assignedIds = (assigned || []).map(a => a.user_id);
+
+  let query = supabase
+    .from('profiles')
+    .select(`*, pregnant_profiles (*), subscriptions (*)`)
+    .eq('user_role', 'pregnant')
+    .order('display_name', { ascending: true })
+    .limit(20);
+
+  if (assignedIds.length > 0) {
+    query = query.not('id', 'in', `(${assignedIds.join(',')})`);
+  }
+
+  if (search) {
+    query = query.or(`display_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as UserWithProfile[];
+}
+
+// ============================================
 // CONVERSATION APIs
 // ============================================
 
@@ -482,6 +696,21 @@ export async function fetchConversations(
   return { data: result, count: count || 0 };
 }
 
+export async function fetchConversationTabCounts(): Promise<{ active: number; archived: number }> {
+  const [active, archived] = await Promise.all([
+    supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabase
+      .from('conversations')
+      .select('id', { count: 'exact', head: true })
+      .or('is_active.eq.false,is_active.is.null'),
+  ]);
+
+  return {
+    active: active.count ?? 0,
+    archived: archived.count ?? 0,
+  };
+}
+
 export async function fetchConversationById(id: string): Promise<ConversationWithUsers | null> {
   const { data, error } = await supabase
     .from('conversations')
@@ -515,31 +744,27 @@ export async function reactivateConversation(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function fetchConversationMessages(
-  conversationId: string,
-  limit: number = 50,
-  offset: number = 0
-): Promise<PaginatedResponse<{ id: string; conversation_id: string; sender_id: string; content: string; created_at: string; read_at: string | null; sender: Profile }>> {
-  const { data, error, count } = await supabase
-    .from('messages')
-    .select(`
-      *,
-      sender:profiles!messages_sender_id_fkey (*)
-    `, { count: 'exact' })
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) throw error;
-  return { 
-    data: (data || []).reverse(), 
-    count: count || 0 
-  };
-}
-
 // ============================================
 // BROADCAST APIs
 // ============================================
+
+export async function fetchBroadcastStatusCounts(): Promise<{
+  pending: number;
+  accepted: number;
+  expired: number;
+}> {
+  const [pending, accepted, expired] = await Promise.all([
+    supabase.from('broadcast_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.from('broadcast_requests').select('id', { count: 'exact', head: true }).eq('status', 'accepted'),
+    supabase.from('broadcast_requests').select('id', { count: 'exact', head: true }).eq('status', 'expired'),
+  ]);
+
+  return {
+    pending: pending.count ?? 0,
+    accepted: accepted.count ?? 0,
+    expired: expired.count ?? 0,
+  };
+}
 
 export async function fetchBroadcasts(
   from: number,
@@ -767,16 +992,24 @@ export async function deleteWeeklyContent(id: string): Promise<void> {
 }
 
 export async function uploadWeeklyContentImage(weekNumber: number, file: File): Promise<string> {
+  const bucket =
+    (import.meta.env.VITE_WEEKLY_CONTENT_STORAGE_BUCKET as string | undefined)?.trim() || 'weekly-content';
   const fileExt = file.name.split('.').pop();
   const filePath = `week-${weekNumber}/illustration.${fileExt}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from('weekly-content')
-    .upload(filePath, file, { upsert: true });
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, { upsert: true });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    const msg = uploadError.message || '';
+    if (msg.includes('Bucket not found') || msg.includes('not found')) {
+      throw new Error(
+        `Storage bucket "${bucket}" does not exist. Create it in Supabase Dashboard → Storage (public read recommended for illustrations), or set VITE_WEEKLY_CONTENT_STORAGE_BUCKET to your bucket name.`
+      );
+    }
+    throw uploadError;
+  }
 
-  const { data } = supabase.storage.from('weekly-content').getPublicUrl(filePath);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
   return data.publicUrl;
 }
 
