@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import ReactDOM from "react-dom";
 import toast from "react-hot-toast";
 import { useSupabaseQuery } from "../../../hooks";
 import { PreggaColors } from "../../../theme/colors";
@@ -9,7 +10,57 @@ import { Modal } from "../../ui/Modal";
 import { fetchWeeklyContent, upsertWeeklyContent, deleteWeeklyContent, uploadWeeklyContentImage } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
 import type { WeeklyContent } from "../../../types/database";
-import { Plus, Pencil, Trash2, AlertCircle, BookOpen, Upload, X, Search, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, AlertCircle, BookOpen, Upload, X, Search } from "lucide-react";
+
+function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 10000,
+        background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "zoom-out", animation: "modalFadeIn 0.15s ease-out",
+        padding: 24,
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute", top: 20, right: 20,
+          width: 40, height: 40, borderRadius: "50%",
+          background: "rgba(255,255,255,0.15)", border: "none",
+          color: "#fff", cursor: "pointer", display: "flex",
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <X size={20} />
+      </button>
+      <img
+        src={src}
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: "90vw", maxHeight: "90vh",
+          borderRadius: 12, objectFit: "contain",
+          cursor: "default",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}
+      />
+    </div>,
+    document.body
+  );
+}
 
 interface WeeklyContentViewProps {
   isMobile: boolean;
@@ -18,6 +69,7 @@ interface WeeklyContentViewProps {
 export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingContent, setEditingContent] = useState<WeeklyContent | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingContent, setDeletingContent] = useState<WeeklyContent | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -28,6 +80,8 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
     ['weekly-content'],
     fetchWeeklyContent
   );
+
+  const existingWeeks = useMemo(() => content?.map((c) => c.week_number) || [], [content]);
 
   const filteredContent = content?.filter((item) => {
     if (!searchQuery) return true;
@@ -40,9 +94,22 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
     );
   });
 
-  const handleSave = async (data: Partial<WeeklyContent> & { week_number: number }) => {
+  const handleSave = async (data: Partial<WeeklyContent> & { week_number: number }, pendingFile: File | null) => {
     try {
-      await upsertWeeklyContent(data);
+      let illustrationUrl = data.illustration_url;
+
+      if (pendingFile) {
+        toast.loading("Uploading image...", { id: "upload" });
+        try {
+          illustrationUrl = await uploadWeeklyContentImage(data.week_number, pendingFile);
+          toast.success("Image uploaded", { id: "upload" });
+        } catch (uploadErr) {
+          toast.error(`Image upload failed: ${friendlyError(uploadErr)}`, { id: "upload" });
+          throw uploadErr;
+        }
+      }
+
+      await upsertWeeklyContent({ ...data, illustration_url: illustrationUrl });
       toast.success(editingContent ? "Content updated" : "Content created");
       refetch();
       setShowEditModal(false);
@@ -193,7 +260,10 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
                 </div>
                 
                 {item.illustration_url && (
-                  <div style={{ width: "100%", height: 120, borderRadius: 8, background: PreggaColors.neutral100, overflow: "hidden" }}>
+                  <div 
+                    onClick={() => setLightboxSrc(item.illustration_url!)}
+                    style={{ width: "100%", height: 120, borderRadius: 8, background: PreggaColors.neutral100, overflow: "hidden", cursor: "zoom-in" }}
+                  >
                     <img src={item.illustration_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 )}
@@ -224,6 +294,7 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
       <ContentEditModal
         open={showEditModal}
         content={editingContent}
+        existingWeeks={existingWeeks}
         onClose={() => { setShowEditModal(false); setEditingContent(null); }}
         onSave={handleSave}
       />
@@ -287,16 +358,23 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
           </div>
         </div>
       </Modal>
+
+      {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   );
 }
 
-function ContentEditModal({ open, content, onClose, onSave }: { 
-  open: boolean; 
-  content: WeeklyContent | null; 
-  onClose: () => void; 
-  onSave: (data: Partial<WeeklyContent> & { week_number: number }) => Promise<void>;
-}) {
+interface ContentEditModalProps {
+  open: boolean;
+  content: WeeklyContent | null;
+  existingWeeks: number[];
+  onClose: () => void;
+  onSave: (data: Partial<WeeklyContent> & { week_number: number }, pendingFile: File | null) => Promise<void>;
+}
+
+const MAX_WEEK = 42;
+
+function ContentEditModal({ open, content, existingWeeks, onClose, onSave }: ContentEditModalProps) {
   const [formData, setFormData] = useState({ 
     week_number: 1, 
     affirmation: "", 
@@ -305,24 +383,36 @@ function ContentEditModal({ open, content, onClose, onSave }: {
     baby_size_comparison: "" 
   });
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isEditing = !!content;
+  const availableWeeks = Array.from({ length: MAX_WEEK }, (_, i) => i + 1).filter(
+    (w) => !existingWeeks.includes(w) || (content && content.week_number === w)
+  );
+
+  const existingWeeksRef = useRef(existingWeeks);
+  existingWeeksRef.current = existingWeeks;
 
   useEffect(() => {
     if (open) {
+      const weeks = existingWeeksRef.current;
+      const firstAvailable = Array.from({ length: MAX_WEEK }, (_, i) => i + 1).find(
+        (w) => !weeks.includes(w)
+      ) || 1;
+      const initialWeek = content?.week_number ?? firstAvailable;
       const initialData = content ? {
         week_number: content.week_number,
         affirmation: content.affirmation || "",
         content_body: content.content_body || "",
         illustration_url: content.illustration_url || "",
         baby_size_comparison: content.baby_size_comparison || "",
-      } : { week_number: 1, affirmation: "", content_body: "", illustration_url: "", baby_size_comparison: "" };
+      } : { week_number: initialWeek, affirmation: "", content_body: "", illustration_url: "", baby_size_comparison: "" };
       
       setFormData(initialData);
       setImagePreview(initialData.illustration_url || null);
-      setUploadError(null);
+      setPendingFile(null);
     }
   }, [open, content]);
 
@@ -330,7 +420,7 @@ function ContentEditModal({ open, content, onClose, onSave }: {
     fileInputRef.current?.click();
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
@@ -346,43 +436,27 @@ function ContentEditModal({ open, content, onClose, onSave }: {
       return;
     }
 
-    // Create local preview immediately using FileReader
+    setPendingFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setImagePreview(base64);
+      setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
-
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const url = await uploadWeeklyContentImage(formData.week_number, file);
-      setFormData(prev => ({ ...prev, illustration_url: url }));
-      setImagePreview(url);
-      toast.success("Image uploaded successfully");
-    } catch (err) {
-      console.error("Upload error:", err);
-      const errorMsg = friendlyError(err);
-      setUploadError(errorMsg);
-      toast.error(`Upload failed: ${errorMsg}`);
-      // Clear preview since upload failed
-      setImagePreview(formData.illustration_url || null);
-    } finally {
-      setUploading(false);
-    }
-    
-    // Reset input value to allow selecting the same file again
     e.target.value = "";
   };
 
   const handleRemoveImage = () => {
     setFormData(prev => ({ ...prev, illustration_url: "" }));
     setImagePreview(null);
+    setPendingFile(null);
   };
 
   const handleSubmit = async () => {
     if (!formData.week_number) { toast.error("Week number is required"); return; }
+    if (!isEditing && existingWeeks.includes(formData.week_number)) {
+      toast.error(`Week ${formData.week_number} already has content. Please select another week.`);
+      return;
+    }
     setSaving(true);
     try {
       await onSave({
@@ -390,30 +464,79 @@ function ContentEditModal({ open, content, onClose, onSave }: {
         week_number: formData.week_number,
         affirmation: formData.affirmation || null,
         content_body: formData.content_body || null,
-        illustration_url: formData.illustration_url || null,
+        illustration_url: pendingFile ? "" : (formData.illustration_url || null),
         baby_size_comparison: formData.baby_size_comparison || null,
-      });
+      }, pendingFile);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={content ? "Edit Week Content" : "Add Week Content"} width={600} footer={
+    <Modal open={open} onClose={onClose} title={isEditing ? "Edit Week Content" : "Add Week Content"} width={600} footer={
       <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} loading={saving} disabled={uploading}>Save</Button>
+        <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button onClick={handleSubmit} loading={saving}>{saving ? "Saving..." : "Save"}</Button>
       </div>
     }>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Input 
-          label="Week Number" 
-          type="number" 
-          inputSize="md"
-          value={String(formData.week_number)} 
-          onChange={(e) => setFormData({ ...formData, week_number: parseInt(e.target.value) || 1 })} 
-          required 
-        />
+        <div>
+          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
+            Week Number <span style={{ color: PreggaColors.error500 }}>*</span>
+          </label>
+          {isEditing ? (
+            <div style={{
+              padding: "10px 14px",
+              background: PreggaColors.neutral100,
+              borderRadius: 8,
+              fontSize: 14,
+              color: PreggaColors.neutral700,
+              fontWeight: 500,
+            }}>
+              Week {formData.week_number}
+              <span style={{ fontSize: 12, color: PreggaColors.neutral500, marginLeft: 8 }}>(cannot change when editing)</span>
+            </div>
+          ) : (
+            <>
+              <select
+                value={formData.week_number}
+                onChange={(e) => setFormData({ ...formData, week_number: parseInt(e.target.value) })}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  fontSize: 14,
+                  border: `1px solid ${PreggaColors.neutral200}`,
+                  borderRadius: 8,
+                  outline: "none",
+                  background: PreggaColors.white,
+                  color: PreggaColors.neutral900,
+                  fontFamily: "'Inter', sans-serif",
+                  cursor: "pointer",
+                }}
+              >
+                {availableWeeks.length === 0 ? (
+                  <option value="">All weeks have content</option>
+                ) : (
+                  availableWeeks.map((w) => (
+                    <option key={w} value={w}>Week {w}</option>
+                  ))
+                )}
+              </select>
+              {availableWeeks.length === 0 && (
+                <div style={{ marginTop: 8, fontSize: 13, color: PreggaColors.warning600, display: "flex", alignItems: "center", gap: 6 }}>
+                  <AlertCircle size={14} />
+                  All 42 weeks have content. Edit an existing week instead.
+                </div>
+              )}
+              {availableWeeks.length > 0 && existingWeeks.length > 0 && (
+                <div style={{ marginTop: 6, fontSize: 12, color: PreggaColors.neutral500 }}>
+                  {existingWeeks.length} of {MAX_WEEK} weeks already have content
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         <Input 
           label="Affirmation" 
           value={formData.affirmation} 
@@ -427,7 +550,6 @@ function ContentEditModal({ open, content, onClose, onSave }: {
           placeholder="e.g., A lemon, An avocado"
         />
         
-        {/* Image Upload Section */}
         <div>
           <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
             Illustration
@@ -440,135 +562,70 @@ function ContentEditModal({ open, content, onClose, onSave }: {
                 alt="Preview" 
                 style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }} 
               />
-              <div style={{ 
-                position: "absolute", 
-                top: 8, 
-                right: 8, 
-                display: "flex", 
-                gap: 8 
-              }}>
+              <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 8 }}>
                 <button
                   type="button"
                   onClick={handleFileSelect}
-                  disabled={uploading}
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    border: "none",
-                    background: PreggaColors.white,
-                    color: PreggaColors.neutral600,
-                    cursor: uploading ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    width: 32, height: 32, borderRadius: 8, border: "none",
+                    background: PreggaColors.white, color: PreggaColors.neutral600,
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
                 >
-                  {uploading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={16} />}
+                  <Upload size={16} />
                 </button>
                 <button
+                  type="button"
                   onClick={handleRemoveImage}
-                  disabled={uploading}
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    border: "none",
-                    background: PreggaColors.error500,
-                    color: PreggaColors.white,
-                    cursor: uploading ? "not-allowed" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    width: 32, height: 32, borderRadius: 8, border: "none",
+                    background: PreggaColors.error500, color: PreggaColors.white,
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
                 >
                   <X size={16} />
                 </button>
               </div>
-              {uploading && (
+              {pendingFile && (
                 <div style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "rgba(255,255,255,0.8)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  position: "absolute", bottom: 0, left: 0, right: 0,
+                  padding: "6px 12px", background: "rgba(0,0,0,0.6)",
+                  fontSize: 12, color: PreggaColors.white,
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: PreggaColors.primary600 }}>
-                    <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>Uploading...</span>
-                  </div>
+                  New image selected — will upload on Save
                 </div>
               )}
             </div>
           ) : (
             <div
-              onClick={() => !uploading && handleFileSelect()}
+              onClick={handleFileSelect}
               style={{
                 border: `2px dashed ${PreggaColors.neutral300}`,
-                borderRadius: 12,
-                padding: "32px 24px",
-                textAlign: "center",
-                cursor: uploading ? "not-allowed" : "pointer",
-                transition: "all 0.15s ease",
-                background: PreggaColors.neutral50,
+                borderRadius: 12, padding: "32px 24px", textAlign: "center",
+                cursor: "pointer", transition: "all 0.15s ease", background: PreggaColors.neutral50,
               }}
               onMouseEnter={(e) => {
-                if (!uploading) {
-                  e.currentTarget.style.borderColor = PreggaColors.primary400;
-                  e.currentTarget.style.background = PreggaColors.primary50;
-                }
+                e.currentTarget.style.borderColor = PreggaColors.primary400;
+                e.currentTarget.style.background = PreggaColors.primary50;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = PreggaColors.neutral300;
                 e.currentTarget.style.background = PreggaColors.neutral50;
               }}
             >
-              {uploading ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                  <Loader2 size={32} color={PreggaColors.primary500} style={{ animation: "spin 1s linear infinite" }} />
-                  <span style={{ fontSize: 14, color: PreggaColors.neutral600 }}>Uploading...</span>
-                </div>
-              ) : (
-                <>
-                  <Upload size={32} color={PreggaColors.neutral400} style={{ marginBottom: 8 }} />
-                  <div style={{ fontSize: 14, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 4 }}>
-                    Click to upload image
-                  </div>
-                  <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
-                    PNG, JPG, GIF up to 5MB
-                  </div>
-                </>
-              )}
+              <Upload size={32} color={PreggaColors.neutral400} style={{ marginBottom: 8 }} />
+              <div style={{ fontSize: 14, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 4 }}>
+                Click to select image
+              </div>
+              <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
+                PNG, JPG, GIF up to 5MB
+              </div>
             </div>
           )}
           
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            style={{ display: "none" }}
-          />
-          
-          {uploadError && (
-            <div style={{ 
-              marginTop: 8, 
-              padding: "8px 12px", 
-              background: PreggaColors.error50, 
-              borderRadius: 6, 
-              fontSize: 13, 
-              color: PreggaColors.error600,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}>
-              <AlertCircle size={16} />
-              <span>Upload failed: {uploadError}. The image won't be saved.</span>
-            </div>
-          )}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
         </div>
 
         <Textarea 
@@ -578,13 +635,6 @@ function ContentEditModal({ open, content, onClose, onSave }: {
           style={{ minHeight: 120 }}
         />
       </div>
-      
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </Modal>
   );
 }

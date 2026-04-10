@@ -11,6 +11,9 @@ import type { Profile } from "./types/database";
 
 const toasterConfig = {
   position: "bottom-right" as const,
+  containerStyle: {
+    zIndex: 99999,
+  },
   toastOptions: {
     duration: 3000,
     style: {
@@ -130,6 +133,14 @@ function App() {
     window.location.hash = "";
   }
 
+  async function refreshProfile() {
+    if (!authState.user) return;
+    const profile = await fetchProfile(authState.user.id);
+    if (profile) {
+      setAuthState(prev => ({ ...prev, profile }));
+    }
+  }
+
   if (authState.isLoading) {
     return (
       <div style={{ height: "100%", width: "100%", background: "#F8F6F3" }}>
@@ -173,6 +184,7 @@ function App() {
         onSignOut={handleSignOut} 
         user={authState.user}
         profile={authState.profile}
+        onProfileUpdate={refreshProfile}
       />
     </div>
   );

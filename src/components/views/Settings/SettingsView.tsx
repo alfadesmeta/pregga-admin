@@ -15,9 +15,10 @@ interface SettingsViewProps {
   isMobile: boolean;
   user: User;
   profile: Profile;
+  onProfileUpdate?: () => void;
 }
 
-export function SettingsView({ isMobile, profile }: SettingsViewProps) {
+export function SettingsView({ isMobile, profile, onProfileUpdate }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<"profile" | "password">("profile");
 
   return (
@@ -31,22 +32,23 @@ export function SettingsView({ isMobile, profile }: SettingsViewProps) {
         ))}
       </div>
 
-      {activeTab === "profile" && <ProfileTab profile={profile} isMobile={isMobile} />}
+      {activeTab === "profile" && <ProfileTab profile={profile} isMobile={isMobile} onProfileUpdate={onProfileUpdate} />}
       {activeTab === "password" && <PasswordTab />}
     </div>
   );
 }
 
-function ProfileTab({ profile, isMobile }: { profile: Profile; isMobile: boolean }) {
-  const [formData, setFormData] = useState({ display_name: profile.display_name || "", email: profile.email || "", phone: profile.phone || "" });
+function ProfileTab({ profile, isMobile, onProfileUpdate }: { profile: Profile; isMobile: boolean; onProfileUpdate?: () => void }) {
+  const [displayName, setDisplayName] = useState(profile.display_name || "");
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateAdminProfile(profile.id, { display_name: formData.display_name, email: formData.email, phone: formData.phone });
+      await updateAdminProfile(profile.id, { display_name: displayName });
       toast.success("Profile updated");
+      onProfileUpdate?.();
     } catch (err) { toast.error(friendlyError(err)); } finally { setSaving(false); }
   };
 
@@ -57,6 +59,7 @@ function ProfileTab({ profile, isMobile }: { profile: Profile; isMobile: boolean
       const url = await uploadAvatar(profile.id, file);
       setAvatarUrl(url);
       toast.success("Avatar updated");
+      onProfileUpdate?.();
     } catch (err) { toast.error(friendlyError(err)); }
   };
 
@@ -79,9 +82,24 @@ function ProfileTab({ profile, isMobile }: { profile: Profile; isMobile: boolean
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-        <Input label="Name" value={formData.display_name} onChange={(e) => setFormData({ ...formData, display_name: e.target.value })} />
-        <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-        <Input label="Phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+        <Input label="Name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+        <div>
+          <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 8 }}>
+            Email
+          </label>
+          <div
+            style={{
+              padding: "10px 14px",
+              background: PreggaColors.neutral100,
+              borderRadius: 8,
+              fontSize: 14,
+              color: PreggaColors.neutral600,
+              border: `1px solid ${PreggaColors.neutral200}`,
+            }}
+          >
+            {profile.email}
+          </div>
+        </div>
       </div>
 
       <div style={{ marginTop: 20 }}>

@@ -7,6 +7,7 @@ type TableName =
   | 'profiles'
   | 'pregnant_profiles'
   | 'doula_profiles'
+  | 'doula_assignments'
   | 'broadcast_requests'
   | 'broadcast_rejections'
   | 'conversations'
@@ -32,6 +33,10 @@ const TABLE_CACHE_MAPPINGS: TableCacheMapping[] = [
   { 
     table: 'doula_profiles', 
     invalidatePatterns: ['doulas', 'dashboard', 'verifications'] 
+  },
+  { 
+    table: 'doula_assignments', 
+    invalidatePatterns: ['doulas', 'users', 'assignments'] 
   },
   { 
     table: 'broadcast_requests', 

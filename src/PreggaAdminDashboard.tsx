@@ -19,6 +19,7 @@ interface PreggaAdminDashboardProps {
   onSignOut: () => void;
   user: User;
   profile: Profile;
+  onProfileUpdate?: () => void;
 }
 
 const sectionTitles: Record<Section, string> = {
@@ -32,7 +33,7 @@ const sectionTitles: Record<Section, string> = {
   Settings: "Settings",
 };
 
-export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDashboardProps) {
+export function PreggaAdminDashboard({ onSignOut, user, profile, onProfileUpdate }: PreggaAdminDashboardProps) {
   const { isMobile } = useWindowSize();
   const {
     section,
@@ -190,7 +191,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
           />
         );
       case "Settings":
-        return <SettingsView key={refreshKey} isMobile={isMobile} user={user} profile={profile} />;
+        return <SettingsView key={refreshKey} isMobile={isMobile} user={user} profile={profile} onProfileUpdate={onProfileUpdate} />;
       default:
         return <DashboardView key={refreshKey} isMobile={isMobile} />;
     }
@@ -215,6 +216,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
             activeSection={section}
             onNavigate={navigateToSection}
             onSignOut={onSignOut}
+            profile={profile}
           />
         ) : (
           <div
@@ -231,6 +233,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile }: PreggaAdminDa
               isMobile={false}
               activeSection={section}
               onNavigate={navigateToSection}
+              profile={profile}
               onSignOut={onSignOut}
             />
           </div>

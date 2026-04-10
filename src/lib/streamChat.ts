@@ -161,3 +161,48 @@ export async function fetchStreamMessages(
     return { messages: [], hasMore: false };
   }
 }
+
+export async function subscribeToChannel(
+  channelId: string,
+  onNewMessage: (message: StreamMessage) => void
+): Promise<() => void> {
+  const client = await getStreamClient();
+  const channel = client.channel('messaging', channelId);
+  
+  await channel.watch();
+
+  const handleEvent = (event: { message?: MessageResponse }) => {
+    if (event.message) {
+      const msg = event.message;
+      const streamMessage: StreamMessage = {
+        id: msg.id,
+        text: msg.text || '',
+        user: {
+          id: msg.user?.id || '',
+          name: msg.user?.name || undefined,
+          image: msg.user?.image || undefined,
+        },
+        created_at: msg.created_at || new Date().toISOString(),
+        type: msg.type || 'regular',
+        attachments: (msg.attachments || []).map((a) => ({
+          type: a.type,
+          image_url: a.image_url,
+          thumb_url: a.thumb_url,
+          asset_url: a.asset_url,
+          title: a.title,
+          mime_type: a.mime_type,
+        })),
+        status: msg.status || 'received',
+      };
+      onNewMessage(streamMessage);
+    }
+  };
+
+  channel.on('message.new', handleEvent);
+  channel.on('message.updated', handleEvent);
+
+  return () => {
+    channel.off('message.new', handleEvent);
+    channel.off('message.updated', handleEvent);
+  };
+}

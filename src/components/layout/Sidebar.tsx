@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { Section } from "../../hooks";
+import type { Profile } from "../../types/database";
 import logoImg from "../../assets/logo.png";
 
 interface NavItem {
@@ -66,6 +67,7 @@ interface SidebarProps {
   activeSection: Section;
   onNavigate: (section: Section) => void;
   onSignOut?: () => void;
+  profile?: Profile | null;
 }
 
 export function Sidebar({
@@ -75,7 +77,12 @@ export function Sidebar({
   activeSection,
   onNavigate,
   onSignOut,
+  profile,
 }: SidebarProps) {
+  const displayName = profile?.display_name || "Admin";
+  const email = profile?.email || "";
+  const avatarUrl = profile?.avatar_url;
+  const initials = displayName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "AD";
   const sidebarContent = (
     <aside
       style={{
@@ -274,34 +281,62 @@ export function Sidebar({
           borderTop: `1px solid ${PreggaColors.neutral100}`,
         }}
       >
-        <div
+        <button
+          onClick={() => { onNavigate("Settings"); if (isMobile) onClose(); }}
           style={{
+            width: "100%",
             padding: "10px 12px",
             borderRadius: 8,
             display: "flex",
             alignItems: "center",
             gap: 10,
             marginBottom: 8,
-            background: PreggaColors.neutral50,
+            background: activeSection === "Settings" ? PreggaColors.primary50 : PreggaColors.neutral50,
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            textAlign: "left",
+            transition: PreggaTransitions.fast,
+          }}
+          onMouseEnter={(e) => {
+            if (activeSection !== "Settings") {
+              e.currentTarget.style.background = PreggaColors.neutral100;
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = activeSection === "Settings" ? PreggaColors.primary50 : PreggaColors.neutral50;
           }}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: `linear-gradient(135deg, ${PreggaColors.accent500} 0%, ${PreggaColors.accent600} 100%)`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: PreggaColors.white,
-              fontSize: 13,
-              fontWeight: 600,
-              boxShadow: PreggaShadows.button,
-            }}
-          >
-            AD
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={displayName}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: `linear-gradient(135deg, ${PreggaColors.accent500} 0%, ${PreggaColors.accent600} 100%)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PreggaColors.white,
+                fontSize: 13,
+                fontWeight: 600,
+                boxShadow: PreggaShadows.button,
+              }}
+            >
+              {initials}
+            </div>
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
@@ -310,7 +345,7 @@ export function Sidebar({
                 color: PreggaColors.neutral900,
               }}
             >
-              Admin User
+              {displayName}
             </div>
             <div
               style={{
@@ -321,10 +356,10 @@ export function Sidebar({
                 textOverflow: "ellipsis",
               }}
             >
-              admin@pregga.com
+              {email}
             </div>
           </div>
-        </div>
+        </button>
         <button
           onClick={onSignOut}
           style={{

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
 import { PreggaColors } from "../../../theme/colors";
@@ -13,7 +13,7 @@ import {
   type ConversationFilters,
 } from "../../../lib/api";
 import { formatTimeAgo } from "../../../lib/formatTime";
-import { fetchStreamMessages } from "../../../lib/streamChat";
+import { fetchStreamMessages, subscribeToChannel, type StreamMessage } from "../../../lib/streamChat";
 import { friendlyError } from "../../../lib/errors";
 import type { ConversationWithUsers, Profile } from "../../../types/database";
 import {
@@ -792,7 +792,12 @@ function MessageTranscript({
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const LIMIT = 30;
+
+  const scrollToBottom = (smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+  };
 
   const loadMessages = async (beforeId?: string) => {
     if (beforeId) setIsLoadingMore(true);
@@ -817,6 +822,7 @@ function MessageTranscript({
         setMessages((prev) => [...mapped, ...prev]);
       } else {
         setMessages(mapped);
+        setTimeout(() => scrollToBottom(false), 100);
       }
       setHasMore(result.hasMore);
     } catch (err) {
@@ -829,6 +835,40 @@ function MessageTranscript({
 
   useEffect(() => {
     if (streamChannelId) loadMessages();
+  }, [streamChannelId]);
+
+  useEffect(() => {
+    if (!streamChannelId) return;
+
+    let unsubscribe: (() => void) | null = null;
+
+    subscribeToChannel(streamChannelId, (newMessage: StreamMessage) => {
+      if (newMessage.type === 'regular' || newMessage.type === 'system') {
+        const mappedMessage: StreamMessageData = {
+          id: newMessage.id,
+          text: newMessage.text,
+          userId: newMessage.user.id,
+          userName: newMessage.user.name,
+          created_at: newMessage.created_at,
+          attachments: newMessage.attachments || [],
+          status: newMessage.status || 'received',
+          type: newMessage.type,
+        };
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMessage.id)) {
+            return prev.map((m) => m.id === newMessage.id ? mappedMessage : m);
+          }
+          setTimeout(() => scrollToBottom(true), 100);
+          return [...prev, mappedMessage];
+        });
+      }
+    }).then((unsub) => {
+      unsubscribe = unsub;
+    }).catch(console.error);
+
+    return () => {
+      unsubscribe?.();
+    };
   }, [streamChannelId]);
 
   const loadMore = () => {
@@ -1035,6 +1075,7 @@ function MessageTranscript({
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
         </div>
       )}
