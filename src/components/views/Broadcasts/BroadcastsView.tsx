@@ -15,7 +15,6 @@ import {
   fetchBroadcastById,
   fetchBroadcastStatusCounts,
   cancelBroadcast,
-  renotifyDoulas,
   type BroadcastFilters,
 } from "../../../lib/api";
 import { formatTimeAgo } from "../../../lib/formatTime";
@@ -28,7 +27,6 @@ import {
   X,
   AlertCircle,
   XCircle,
-  Bell,
   User,
   Users,
   Check,
@@ -351,19 +349,6 @@ function BroadcastDetailView({
     }
   };
 
-  const handleRenotify = async () => {
-    if (!broadcast) return;
-    setIsProcessing(true);
-    try {
-      await renotifyDoulas(broadcast.id);
-      toast.success("Doulas re-notified");
-      refetch();
-    } catch (err) {
-      toast.error(friendlyError(err));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   if (isLoading) {
     return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
@@ -603,17 +588,12 @@ function BroadcastDetailView({
           </div>
           <div style={{ padding: 24 }}>
             <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
-              Manage this broadcast request by re-notifying doulas or cancelling the broadcast.
+              Cancel this broadcast request if it's no longer needed.
             </p>
-            <div style={{ display: "flex", gap: 12 }}>
-              <Button onClick={handleRenotify} loading={isProcessing} icon={<Bell size={16} />}>
-                Re-notify Doulas
-              </Button>
-              <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ border: `1px solid ${PreggaColors.error300}`, color: PreggaColors.error600 }}>
-                <XCircle size={16} />
-                Cancel Broadcast
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setShowCancelModal(true)} style={{ borderWidth: 1, borderStyle: "solid", borderColor: PreggaColors.error300, color: PreggaColors.error600 }}>
+              <XCircle size={16} />
+              Cancel Broadcast
+            </Button>
           </div>
         </Card>
       )}

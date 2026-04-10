@@ -19,8 +19,7 @@ import {
   unassignClientFromDoula,
   updateDoulaProfile,
   updateDoulaAvailability,
-  verifyDoula,
-  rejectDoula,
+  deactivateDoula,
   type DoulaFilters,
 } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
@@ -30,13 +29,10 @@ import { AssignClientsModal } from "./AssignClientsModal";
 import {
   Search,
   Users,
-  Calendar,
-  Award,
   X,
   AlertCircle,
   Pencil,
   Check,
-  XCircle,
   MessageCircle,
   ToggleRight,
   Trash2,
@@ -147,18 +143,11 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
     },
     {
       key: "availability",
-      label: "Availability",
+      label: "Status",
       render: (_, row) => (
         <Badge variant={row.doula_profiles?.is_available ? "success" : "neutral"} size="sm">
           {row.doula_profiles?.is_available ? "Available" : "Unavailable"}
         </Badge>
-      ),
-    },
-    {
-      key: "verification",
-      label: "Status",
-      render: (_, row) => (
-        <StatusBadge status={row.doula_profiles?.is_verified ? "verified" : "pending"} />
       ),
     },
     {
@@ -209,12 +198,11 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
             <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{doula.email || doula.phone}</div>
           </div>
         </div>
-        <StatusBadge status={doula.doula_profiles?.is_verified ? "verified" : "pending"} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
         <Badge variant={doula.doula_profiles?.is_available ? "success" : "neutral"} size="sm">
           {doula.doula_profiles?.is_available ? "Available" : "Unavailable"}
         </Badge>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
         <span style={{ color: PreggaColors.neutral500 }}>Joined {formatTimeAgo(doula.created_at)}</span>
       </div>
     </div>
@@ -232,8 +220,6 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
   }
 
   const kpiTotal = doulaKpis?.total ?? count;
-  const kpiVerified = doulaKpis?.verified ?? 0;
-  const kpiPendingVerification = doulaKpis?.pendingVerification ?? 0;
   const kpiAvailable = doulaKpis?.available ?? 0;
 
   return (
@@ -257,21 +243,10 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
               <Select
-                value={filters.isVerified === true ? "verified" : filters.isVerified === false ? "pending" : ""}
-                onChange={(v) => setFilters({ ...filters, isVerified: v === "verified" ? true : v === "pending" ? false : undefined })}
-                options={[
-                  { value: "", label: "All verification" },
-                  { value: "verified", label: "Verified" },
-                  { value: "pending", label: "Pending verification" },
-                ]}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <Select
                 value={filters.isAvailable === true ? "yes" : filters.isAvailable === false ? "no" : ""}
                 onChange={(v) => setFilters({ ...filters, isAvailable: v === "yes" ? true : v === "no" ? false : undefined })}
                 options={[
-                  { value: "", label: "Availability" },
+                  { value: "", label: "All Availability" },
                   { value: "yes", label: "Available" },
                   { value: "no", label: "Unavailable" },
                 ]}
@@ -295,17 +270,6 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               showClear
               onClear={() => setSearchQuery("")}
               style={{ marginBottom: 0 }}
-            />
-          </div>
-          <div style={{ width: 130 }}>
-            <Select
-              value={filters.isVerified === true ? "verified" : filters.isVerified === false ? "pending" : ""}
-              onChange={(v) => setFilters({ ...filters, isVerified: v === "verified" ? true : v === "pending" ? false : undefined })}
-                options={[
-                { value: "", label: "All verification" },
-                { value: "verified", label: "Verified" },
-                { value: "pending", label: "Pending verification" },
-              ]}
             />
           </div>
           <div style={{ width: 150 }}>
@@ -336,9 +300,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
         <StatCard label="Total Doulas" value={kpiTotal} icon={<Users size={18} />} color={PreggaColors.sage500} delay={0} />
-        <StatCard label="Verified" value={kpiVerified} icon={<Award size={18} />} color={PreggaColors.success500} delay={100} />
-        <StatCard label="Pending verification" value={kpiPendingVerification} icon={<Calendar size={18} />} color={PreggaColors.warning500} delay={200} />
-        <StatCard label="Available" value={kpiAvailable} icon={<Check size={18} />} color={PreggaColors.info500} delay={300} />
+        <StatCard label="Available" value={kpiAvailable} icon={<Check size={18} />} color={PreggaColors.success500} delay={100} />
       </div>
 
       {/* Mobile Add Button */}
@@ -392,7 +354,7 @@ function DoulaDetailView({
   onNavigateToConversation?: (conversationId: string) => void;
   onRefresh?: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"profile" | "availability" | "clients" | "conversations" | "verification" | "deactivate">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "availability" | "clients" | "conversations" | "deactivate">("profile");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -450,7 +412,7 @@ function DoulaDetailView({
     if (!doula || deactivateConfirmText !== "DEACTIVATE") return;
     setIsDeactivating(true);
     try {
-      await rejectDoula(doula.id);
+      await deactivateDoula(doula.id);
       toast.success("Doula account deactivated");
       setShowDeactivateModal(false);
       setDeactivateConfirmText("");
@@ -460,30 +422,6 @@ function DoulaDetailView({
       toast.error(friendlyError(err));
     } finally {
       setIsDeactivating(false);
-    }
-  };
-
-  const handleVerify = async () => {
-    if (!doula) return;
-    try {
-      await verifyDoula(doula.id);
-      toast.success("Doula verified successfully");
-      refetch();
-      onRefresh?.();
-    } catch (err) {
-      toast.error(friendlyError(err));
-    }
-  };
-
-  const handleReject = async () => {
-    if (!doula) return;
-    try {
-      await rejectDoula(doula.id);
-      toast.success("Doula verification rejected");
-      refetch();
-      onRefresh?.();
-    } catch (err) {
-      toast.error(friendlyError(err));
     }
   };
 
@@ -501,14 +439,11 @@ function DoulaDetailView({
     );
   }
 
-  const isVerified = doula.doula_profiles?.is_verified === true;
-
   const tabs: Tab[] = [
     { id: "profile", label: "Profile", icon: <User size={15} /> },
     { id: "availability", label: "Availability", icon: <ToggleRight size={15} /> },
     { id: "clients", label: "Clients", icon: <Users size={15} /> },
     { id: "conversations", label: "Conversations", icon: <MessageCircle size={15} /> },
-    ...(!isVerified ? [{ id: "verification", label: "Verification", icon: <Award size={15} /> }] : []),
     { id: "deactivate", label: "Deactivate", icon: <Trash2 size={15} /> },
   ];
 
@@ -520,20 +455,19 @@ function DoulaDetailView({
         subtitle={doula.email || doula.phone || "No contact info"}
         avatarUrl={doula.avatar_url}
         avatarFallback={doula.display_name || "Doula"}
-        avatarGradient={isVerified 
+        avatarGradient={isAvailable 
           ? [PreggaColors.sage400, PreggaColors.sage500] 
-          : [PreggaColors.warning400, PreggaColors.warning500]}
+          : [PreggaColors.neutral400, PreggaColors.neutral500]}
         onGoBack={() => onGoBack?.()}
         action={<Button icon={<Pencil size={15} />} onClick={() => setShowEditModal(true)} size="sm">Edit</Button>}
         stats={[
-          { label: "Verification", value: isVerified ? "Verified" : "Pending", highlight: isVerified },
-          { label: "Availability", value: isAvailable ? "Available" : "Unavailable", highlight: isAvailable },
+          { label: "Status", value: isAvailable ? "Available" : "Unavailable", highlight: isAvailable },
           { label: "Joined", value: formatDate(doula.created_at) },
         ]}
         isMobile={isMobile}
-        accentColor={isVerified 
+        accentColor={isAvailable 
           ? `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)` 
-          : `linear-gradient(90deg, ${PreggaColors.warning500} 0%, ${PreggaColors.warning400} 100%)`}
+          : `linear-gradient(90deg, ${PreggaColors.neutral500} 0%, ${PreggaColors.neutral400} 100%)`}
       />
 
       {/* Tabs */}
@@ -783,32 +717,6 @@ function DoulaDetailView({
         </div>
       )}
 
-      {activeTab === "verification" && !isVerified && (
-        <Card padding="24px">
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: PreggaColors.warning50, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Award size={24} color={PreggaColors.warning500} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 8px" }}>
-                Verify This Doula
-              </h3>
-              <p style={{ fontSize: 14, color: PreggaColors.neutral500, margin: "0 0 16px", lineHeight: 1.5 }}>
-                Review the doula's profile and verify their credentials. Once verified, they will be visible to users seeking doula services.
-              </p>
-              <div style={{ display: "flex", gap: 12 }}>
-                <Button onClick={handleVerify} icon={<Check size={16} />}>
-                  Verify Doula
-                </Button>
-                <Button variant="outline" onClick={handleReject} icon={<XCircle size={16} />} style={{ border: `1px solid ${PreggaColors.error300}`, color: PreggaColors.error600 }}>
-                  Reject
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {activeTab === "deactivate" && (
         <Card padding="24px">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: 20, background: PreggaColors.error50, borderRadius: 12, border: `1px solid ${PreggaColors.error100}` }}>
@@ -820,8 +728,8 @@ function DoulaDetailView({
                 Deactivate Doula Account
               </h3>
               <p style={{ fontSize: 13, color: PreggaColors.neutral600, margin: "0 0 16px", lineHeight: 1.5 }}>
-                Deactivating this doula will remove their verification status and mark them as unavailable.
-                They will no longer appear in search results for users. This action can be reversed by re-verifying the doula.
+                Deactivating this doula will mark them as unavailable.
+                They will no longer appear in search results for users. This action can be reversed.
               </p>
               <button
                 onClick={() => setShowDeactivateModal(true)}

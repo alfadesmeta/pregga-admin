@@ -17,40 +17,6 @@ import type {
   DoulaAssignmentWithUser,
 } from '../types/database';
 
-/** Cached: false when `is_verified` is not usable (missing column, bad filter, etc.). */
-let cachedDoulaHasIsVerifiedColumn: boolean | null = null;
-let doulaIsVerifiedProbe: Promise<boolean> | null = null;
-
-function doulaProfilesHasIsVerifiedColumn(): Promise<boolean> {
-  if (cachedDoulaHasIsVerifiedColumn !== null) {
-    return Promise.resolve(cachedDoulaHasIsVerifiedColumn);
-  }
-  if (!doulaIsVerifiedProbe) {
-    doulaIsVerifiedProbe = (async () => {
-      const { error } = await supabase.from('doula_profiles').select('is_verified').limit(1);
-      if (!error) {
-        cachedDoulaHasIsVerifiedColumn = true;
-        return true;
-      }
-      const m = `${error.message || ''} ${(error as { details?: string }).details || ''}`.toLowerCase();
-      const authOnly =
-        error.code === 'PGRST301' ||
-        m.includes('jwt') ||
-        m.includes('not authorized') ||
-        m.includes('permission denied');
-      if (authOnly) {
-        cachedDoulaHasIsVerifiedColumn = true;
-        return true;
-      }
-      cachedDoulaHasIsVerifiedColumn = false;
-      return false;
-    })().finally(() => {
-      doulaIsVerifiedProbe = null;
-    });
-  }
-  return doulaIsVerifiedProbe;
-}
-
 export interface PaginatedResponse<T> {
   data: T[];
   count: number;
@@ -78,7 +44,6 @@ export interface DoulaFilters {
   search?: string;
   isAvailable?: boolean;
   isOnline?: boolean;
-  isVerified?: boolean;
 }
 
 export interface ConversationFilters {
@@ -349,11 +314,7 @@ export async function fetchDoulas(
 ): Promise<PaginatedResponse<DoulaWithProfile>> {
   const needsInnerJoin =
     filters?.isAvailable !== undefined ||
-    filters?.isVerified !== undefined ||
     filters?.isOnline !== undefined;
-
-  const hasIsVerifiedCol =
-    filters?.isVerified === undefined ? true : await doulaProfilesHasIsVerifiedColumn();
 
   let query = supabase
     .from('profiles')
@@ -377,20 +338,6 @@ export async function fetchDoulas(
     query = query.eq('doula_profiles.is_online', filters.isOnline);
   }
 
-  if (filters?.isVerified === true) {
-    if (hasIsVerifiedCol) {
-      query = query.eq('doula_profiles.is_verified', true);
-    } else {
-      query = query.eq('doula_profiles.is_available', true);
-    }
-  } else if (filters?.isVerified === false) {
-    if (hasIsVerifiedCol) {
-      query = query.or('is_verified.is.null,is_verified.eq.false', { foreignTable: 'doula_profiles' });
-    } else {
-      query = query.eq('doula_profiles.is_available', false);
-    }
-  }
-
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
     .range(from, to);
@@ -402,53 +349,15 @@ export async function fetchDoulas(
 
 export async function fetchDoulaKpiCounts(): Promise<{
   total: number;
-  verified: number;
-  pendingVerification: number;
   available: number;
 }> {
-  const hasCol = await doulaProfilesHasIsVerifiedColumn();
   const [totalRes, availableRes] = await Promise.all([
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('user_role', 'doula'),
     supabase.from('doula_profiles').select('id', { count: 'exact', head: true }).eq('is_available', true),
   ]);
 
-  if (!hasCol) {
-    const { count: doulaProfileRows } = await supabase
-      .from('doula_profiles')
-      .select('id', { count: 'exact', head: true });
-    return {
-      total: totalRes.count ?? 0,
-      verified: 0,
-      pendingVerification: doulaProfileRows ?? 0,
-      available: availableRes.count ?? 0,
-    };
-  }
-
-  const [verifiedRes, pendingRes] = await Promise.all([
-    supabase.from('doula_profiles').select('id', { count: 'exact', head: true }).eq('is_verified', true),
-    supabase
-      .from('doula_profiles')
-      .select('id', { count: 'exact', head: true })
-      .or('is_verified.is.null,is_verified.eq.false'),
-  ]);
-
-  if (verifiedRes.error || pendingRes.error) {
-    cachedDoulaHasIsVerifiedColumn = false;
-    const { count: doulaProfileRows } = await supabase
-      .from('doula_profiles')
-      .select('id', { count: 'exact', head: true });
-    return {
-      total: totalRes.count ?? 0,
-      verified: 0,
-      pendingVerification: doulaProfileRows ?? 0,
-      available: availableRes.count ?? 0,
-    };
-  }
-
   return {
     total: totalRes.count ?? 0,
-    verified: verifiedRes.count ?? 0,
-    pendingVerification: pendingRes.count ?? 0,
     available: availableRes.count ?? 0,
   };
 }
@@ -498,19 +407,10 @@ export async function updateDoulaAvailability(id: string, isAvailable: boolean):
   if (error) throw error;
 }
 
-export async function verifyDoula(id: string): Promise<void> {
+export async function deactivateDoula(id: string): Promise<void> {
   const { error } = await supabase
     .from('doula_profiles')
-    .update({ is_verified: true })
-    .eq('user_id', id);
-
-  if (error) throw error;
-}
-
-export async function rejectDoula(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('doula_profiles')
-    .update({ is_verified: false })
+    .update({ is_available: false })
     .eq('user_id', id);
 
   if (error) throw error;
