@@ -484,9 +484,39 @@ function DoulaDetailView({
           <InfoCard label="Name" value={doula.display_name || "—"} />
           <InfoCard label="Email" value={doula.email || "—"} />
           <InfoCard label="Phone" value={doula.phone || "—"} />
+          <InfoCard label="Years of Experience" value={doula.doula_profiles?.years_experience ? `${doula.doula_profiles.years_experience} years` : "—"} />
           <InfoCard label="Auth Provider" value={doula.auth_provider || "—"} />
           <InfoCard label="Created" value={formatDate(doula.created_at)} />
-          <InfoCard label="Last Updated" value={formatDate(doula.updated_at)} />
+          
+          {/* Expertise Tags */}
+          <Card padding="16px" style={{ gridColumn: isMobile ? "1" : "1 / -1" }}>
+            <div style={{ fontSize: 13, color: PreggaColors.neutral500, marginBottom: 8 }}>Expertise</div>
+            {doula.doula_profiles?.expertise && doula.doula_profiles.expertise.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {doula.doula_profiles.expertise.map((tag, index) => (
+                  <span
+                    key={index}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "6px 12px",
+                      background: PreggaColors.sage50,
+                      color: PreggaColors.sage700,
+                      borderRadius: 16,
+                      fontSize: 13,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 14, color: PreggaColors.neutral400 }}>No expertise tags</div>
+            )}
+          </Card>
+
+          {/* Bio */}
           <Card padding="16px" style={{ gridColumn: isMobile ? "1" : "1 / -1" }}>
             <div style={{ fontSize: 13, color: PreggaColors.neutral500, marginBottom: 4 }}>Bio</div>
             <div style={{ fontSize: 14, color: PreggaColors.neutral900, lineHeight: 1.5 }}>
