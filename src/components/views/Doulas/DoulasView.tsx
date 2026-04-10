@@ -1014,8 +1014,11 @@ function EditDoulaModal({
     email: doula.email || "",
     phone: doula.phone || "",
     bio: doula.doula_profiles?.bio || "",
+    years_experience: doula.doula_profiles?.years_experience || 0,
+    expertise: doula.doula_profiles?.expertise || [] as string[],
   });
   const [saving, setSaving] = useState(false);
+  const [newTag, setNewTag] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -1024,9 +1027,24 @@ function EditDoulaModal({
         email: doula.email || "",
         phone: doula.phone || "",
         bio: doula.doula_profiles?.bio || "",
+        years_experience: doula.doula_profiles?.years_experience || 0,
+        expertise: doula.doula_profiles?.expertise || [],
       });
+      setNewTag("");
     }
   }, [open, doula]);
+
+  const handleAddTag = () => {
+    const tag = newTag.trim();
+    if (tag && !formData.expertise.includes(tag)) {
+      setFormData({ ...formData, expertise: [...formData.expertise, tag] });
+      setNewTag("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData({ ...formData, expertise: formData.expertise.filter(t => t !== tagToRemove) });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -1037,7 +1055,11 @@ function EditDoulaModal({
           email: formData.email || null,
           phone: formData.phone || null,
         },
-        doula: { bio: formData.bio || null },
+        doula: { 
+          bio: formData.bio || null,
+          years_experience: formData.years_experience || null,
+          expertise: formData.expertise.length > 0 ? formData.expertise : null,
+        },
       });
     } finally {
       setSaving(false);
@@ -1049,7 +1071,7 @@ function EditDoulaModal({
       open={open}
       onClose={onClose}
       title="Edit Doula Profile"
-      width={480}
+      width={520}
       footer={
         <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -1060,6 +1082,105 @@ function EditDoulaModal({
       <Input label="Name" value={formData.display_name} onChange={(e) => setFormData({ ...formData, display_name: e.target.value })} />
       <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
       <Input label="Phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+      
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 6 }}>
+          Years of Experience
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={50}
+          value={formData.years_experience}
+          onChange={(e) => setFormData({ ...formData, years_experience: parseInt(e.target.value) || 0 })}
+          style={{
+            width: "100%",
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: `1px solid ${PreggaColors.neutral200}`,
+            fontSize: 14,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 6 }}>
+          Expertise Tags
+        </label>
+        
+        {/* Current Tags */}
+        {formData.expertise.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            {formData.expertise.map((tag, index) => (
+              <span
+                key={index}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 10px",
+                  background: PreggaColors.sage50,
+                  color: PreggaColors.sage700,
+                  borderRadius: 16,
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: PreggaColors.sage200,
+                    color: PreggaColors.sage700,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Add New Tag */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddTag();
+              }
+            }}
+            placeholder="Type a tag and press Enter"
+            style={{
+              flex: 1,
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: `1px solid ${PreggaColors.neutral200}`,
+              fontSize: 14,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          />
+          <Button type="button" variant="outline" onClick={handleAddTag} size="sm">
+            Add
+          </Button>
+        </div>
+      </div>
+
       <div style={{ marginBottom: 16 }}>
         <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: PreggaColors.neutral700, marginBottom: 6 }}>Bio</label>
         <textarea
