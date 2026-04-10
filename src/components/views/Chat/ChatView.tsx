@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
+import toast from "react-hot-toast";
 import { useSupabasePaginatedQuery, useSupabaseQuery } from "../../../hooks";
 import { PreggaColors } from "../../../theme/colors";
 import { Button } from "../../ui/Button";
