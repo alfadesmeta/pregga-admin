@@ -848,10 +848,16 @@ function DoulaDetailView({
                 fontFamily: "monospace",
                 letterSpacing: "1px",
                 boxSizing: "border-box",
-                transition: "border-color 0.15s ease",
+                transition: "border-color 0.15s ease, box-shadow 0.15s ease",
               }}
-              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
-              onBlur={(e) => e.currentTarget.style.borderColor = deactivateConfirmText === "DEACTIVATE" ? PreggaColors.error400 : PreggaColors.neutral200}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = PreggaColors.error400;
+                e.currentTarget.style.boxShadow = `0 0 0 3px ${PreggaColors.error100}`;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = deactivateConfirmText === "DEACTIVATE" ? PreggaColors.error400 : PreggaColors.neutral200;
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
         </div>
@@ -1019,6 +1025,19 @@ function EditDoulaModal({
   });
   const [saving, setSaving] = useState(false);
   const [newTag, setNewTag] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const getInputStyle = (fieldName: string): React.CSSProperties => ({
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: `1px solid ${focusedField === fieldName ? PreggaColors.accent400 : PreggaColors.neutral200}`,
+    fontSize: 14,
+    fontFamily: "'Inter', sans-serif",
+    outline: "none",
+    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+    boxShadow: focusedField === fieldName ? `0 0 0 3px ${PreggaColors.accent100}` : "none",
+  });
 
   useEffect(() => {
     if (open) {
@@ -1093,14 +1112,9 @@ function EditDoulaModal({
           max={50}
           value={formData.years_experience}
           onChange={(e) => setFormData({ ...formData, years_experience: parseInt(e.target.value) || 0 })}
-          style={{
-            width: "100%",
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: `1px solid ${PreggaColors.neutral200}`,
-            fontSize: 14,
-            fontFamily: "'Inter', sans-serif",
-          }}
+          onFocus={() => setFocusedField("years_experience")}
+          onBlur={() => setFocusedField(null)}
+          style={getInputStyle("years_experience")}
         />
       </div>
 
@@ -1165,15 +1179,10 @@ function EditDoulaModal({
                 handleAddTag();
               }
             }}
+            onFocus={() => setFocusedField("newTag")}
+            onBlur={() => setFocusedField(null)}
             placeholder="Type a tag and press Enter"
-            style={{
-              flex: 1,
-              padding: "10px 14px",
-              borderRadius: 8,
-              border: `1px solid ${PreggaColors.neutral200}`,
-              fontSize: 14,
-              fontFamily: "'Inter', sans-serif",
-            }}
+            style={{ ...getInputStyle("newTag"), flex: 1, width: "auto" }}
           />
           <Button type="button" variant="outline" onClick={handleAddTag} size="sm">
             Add
@@ -1186,14 +1195,11 @@ function EditDoulaModal({
         <textarea
           value={formData.bio}
           onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+          onFocus={() => setFocusedField("bio")}
+          onBlur={() => setFocusedField(null)}
           rows={4}
           style={{
-            width: "100%",
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: `1px solid ${PreggaColors.neutral200}`,
-            fontSize: 14,
-            fontFamily: "'Inter', sans-serif",
+            ...getInputStyle("bio"),
             resize: "vertical",
           }}
         />

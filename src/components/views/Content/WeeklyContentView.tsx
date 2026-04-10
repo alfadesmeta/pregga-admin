@@ -182,10 +182,16 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
               background: PreggaColors.white,
               color: PreggaColors.neutral900,
               fontFamily: "'Inter', sans-serif",
-              transition: "border-color 0.15s ease",
+              transition: "border-color 0.15s ease, box-shadow 0.15s ease",
             }}
-            onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.primary400}
-            onBlur={(e) => e.currentTarget.style.borderColor = PreggaColors.neutral200}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = PreggaColors.accent400;
+              e.currentTarget.style.boxShadow = `0 0 0 3px ${PreggaColors.accent100}`;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = PreggaColors.neutral200;
+              e.currentTarget.style.boxShadow = "none";
+            }}
           />
           {searchQuery && (
             <button
@@ -350,10 +356,16 @@ export function WeeklyContentView({ isMobile }: WeeklyContentViewProps) {
                 fontFamily: "monospace",
                 letterSpacing: "1px",
                 boxSizing: "border-box",
-                transition: "border-color 0.15s ease",
+                transition: "border-color 0.15s ease, box-shadow 0.15s ease",
               }}
-              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
-              onBlur={(e) => e.currentTarget.style.borderColor = deleteConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = PreggaColors.error400;
+                e.currentTarget.style.boxShadow = `0 0 0 3px ${PreggaColors.error100}`;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = deleteConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200;
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
         </div>

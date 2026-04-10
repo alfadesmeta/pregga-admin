@@ -910,10 +910,16 @@ function UserDetailView({
                 outline: "none",
                 fontFamily: "monospace",
                 letterSpacing: "1px",
-                transition: "border-color 0.15s ease",
+                transition: "border-color 0.15s ease, box-shadow 0.15s ease",
               }}
-              onFocus={(e) => e.currentTarget.style.borderColor = PreggaColors.error400}
-              onBlur={(e) => e.currentTarget.style.borderColor = deleteConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = PreggaColors.error400;
+                e.currentTarget.style.boxShadow = `0 0 0 3px ${PreggaColors.error100}`;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = deleteConfirmText === "DELETE" ? PreggaColors.error400 : PreggaColors.neutral200;
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
         </div>

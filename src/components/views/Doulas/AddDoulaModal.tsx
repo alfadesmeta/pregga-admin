@@ -371,10 +371,16 @@ function ExpertiseTagInput({ tags, onChange }: { tags: string[]; onChange: (tags
             fontSize: 14,
             fontFamily: "'Inter', -apple-system, sans-serif",
             outline: "none",
-            transition: "border-color 0.15s",
+            transition: "border-color 0.15s, box-shadow 0.15s",
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = PreggaColors.sage400; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = PreggaColors.neutral200; }}
+          onFocus={(e) => { 
+            e.currentTarget.style.borderColor = PreggaColors.accent400; 
+            e.currentTarget.style.boxShadow = `0 0 0 3px ${PreggaColors.accent100}`;
+          }}
+          onBlur={(e) => { 
+            e.currentTarget.style.borderColor = PreggaColors.neutral200; 
+            e.currentTarget.style.boxShadow = "none";
+          }}
         />
         <button
           onClick={addTag}
