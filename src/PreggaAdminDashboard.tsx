@@ -50,6 +50,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile, onProfileUpdate
   const [searchOpen, setSearchOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [returnTo, setReturnTo] = useState<{ section: Section; subView?: string } | null>(null);
+  const [usersInitialTab, setUsersInitialTab] = useState<"active" | "requests" | undefined>();
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
@@ -130,7 +131,14 @@ export function PreggaAdminDashboard({ onSignOut, user, profile, onProfileUpdate
             key={refreshKey}
             isMobile={isMobile}
             onNavigateToSubView={handleNavigateToSectionWithSubView}
-            onNavigateToSection={(s) => navigateToSection(s as Section)}
+            onNavigateToSection={(s, tab) => {
+              if (s === "Users" && tab === "requests") {
+                setUsersInitialTab("requests");
+              } else {
+                setUsersInitialTab(undefined);
+              }
+              navigateToSection(s as Section);
+            }}
           />
         );
       case "Users":
@@ -139,6 +147,7 @@ export function PreggaAdminDashboard({ onSignOut, user, profile, onProfileUpdate
             key={refreshKey}
             isMobile={isMobile}
             subView={subView}
+            initialTab={usersInitialTab}
             onNavigateToSubView={navigateToSubView}
             onGoBack={handleGoBackWithReturn}
             onNavigateToConversation={handleNavigateToConversation}

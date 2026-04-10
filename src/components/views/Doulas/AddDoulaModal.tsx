@@ -123,7 +123,7 @@ export function AddDoulaModal({ open, onClose }: AddDoulaModalProps) {
                     justifyContent: "center",
                     fontSize: 13,
                     fontWeight: 600,
-                    background: step >= s ? PreggaColors.sage500 : PreggaColors.neutral100,
+                    background: step >= s ? PreggaColors.accent500 : PreggaColors.neutral100,
                     color: step >= s ? PreggaColors.white : PreggaColors.neutral400,
                     transition: "all 0.2s ease",
                   }}
@@ -134,7 +134,7 @@ export function AddDoulaModal({ open, onClose }: AddDoulaModalProps) {
                   style={{
                     fontSize: 11,
                     fontWeight: 500,
-                    color: step >= s ? PreggaColors.sage700 : PreggaColors.neutral400,
+                    color: step >= s ? PreggaColors.accent700 : PreggaColors.neutral400,
                   }}
                 >
                   {stepLabels[i]}
@@ -145,7 +145,7 @@ export function AddDoulaModal({ open, onClose }: AddDoulaModalProps) {
                   style={{
                     width: 52,
                     height: 2,
-                    background: step > s ? PreggaColors.sage500 : PreggaColors.neutral200,
+                    background: step > s ? PreggaColors.accent500 : PreggaColors.neutral200,
                     transition: "all 0.2s",
                     marginBottom: 20,
                   }}
@@ -254,8 +254,8 @@ export function AddDoulaModal({ open, onClose }: AddDoulaModalProps) {
                           fontWeight: 500,
                           padding: "4px 10px",
                           borderRadius: 16,
-                          background: PreggaColors.sage100,
-                          color: PreggaColors.sage700,
+                          background: PreggaColors.accent100,
+                          color: PreggaColors.accent700,
                         }}
                       >
                         {tag}
@@ -334,8 +334,8 @@ function ExpertiseTagInput({ tags, onChange }: { tags: string[]; onChange: (tags
                 fontWeight: 500,
                 padding: "5px 10px",
                 borderRadius: 16,
-                background: PreggaColors.sage100,
-                color: PreggaColors.sage700,
+                background: PreggaColors.accent100,
+                color: PreggaColors.accent700,
               }}
             >
               {tag}
@@ -347,7 +347,7 @@ function ExpertiseTagInput({ tags, onChange }: { tags: string[]; onChange: (tags
                   cursor: "pointer",
                   padding: 0,
                   display: "flex",
-                  color: PreggaColors.sage500,
+                  color: PreggaColors.accent500,
                 }}
               >
                 <X size={13} />
@@ -393,7 +393,7 @@ function ExpertiseTagInput({ tags, onChange }: { tags: string[]; onChange: (tags
             height: 40,
             borderRadius: 10,
             border: `1px solid ${PreggaColors.neutral200}`,
-            background: inputValue.trim() ? PreggaColors.sage500 : PreggaColors.neutral100,
+            background: inputValue.trim() ? PreggaColors.accent500 : PreggaColors.neutral100,
             color: inputValue.trim() ? PreggaColors.white : PreggaColors.neutral400,
             cursor: inputValue.trim() ? "pointer" : "default",
             transition: "all 0.15s",

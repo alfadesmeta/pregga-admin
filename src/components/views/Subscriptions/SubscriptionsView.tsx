@@ -161,8 +161,8 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
-          <StatCard label="Total" value={count} icon={<CreditCard size={18} />} color={PreggaColors.sage500} delay={0} />
-          <StatCard label="Active" value={activeCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={100} />
+          <StatCard label="Total" value={count} icon={<CreditCard size={18} />} color={PreggaColors.accent500} delay={0} />
+          <StatCard label="Active" value={activeCount} icon={<Check size={18} />} color={PreggaColors.accent500} delay={100} />
           <StatCard label="Trial" value={trialCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={200} />
           <StatCard label="Cancelled" value={cancelledCount} icon={<XCircle size={18} />} color={PreggaColors.error500} delay={300} />
         </div>
@@ -185,7 +185,7 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
         )}
       </div>
 
-      <DataTable columns={columns} data={subscriptions} currentPage={page} totalPages={totalPages} totalItems={count} pageSize={pageSize} onPageChange={setPage} emptyMessage="No subscriptions found" isMobile={isMobile} isLoading={isLoading} mobileCardRender={(sub: Subscription & { user: Profile }) => (
+      <DataTable columns={columns} data={subscriptions} currentPage={page} totalPages={totalPages} totalItems={count} pageSize={pageSize} onPageChange={setPage} onRowClick={(row) => handleSelectSubscription(row.id)} emptyMessage="No subscriptions found" isMobile={isMobile} isLoading={isLoading} mobileCardRender={(sub: Subscription & { user: Profile }) => (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }} onClick={() => handleSelectSubscription(sub.id)}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -259,7 +259,7 @@ function SubscriptionDetailView({ subscriptionId, onGoBack, onRefresh, isMobile 
   if (error || !subscription) return <div style={{ padding: 40, textAlign: "center" }}><AlertCircle size={48} color={PreggaColors.error500} style={{ marginBottom: 16 }} /><h3 style={{ color: PreggaColors.neutral900, marginBottom: 8 }}>Subscription not found</h3><Button onClick={onGoBack} style={{ marginTop: 16 }}>Go Back</Button></div>;
 
   const getStatusGradient = (): [string, string] => {
-    if (subscription.status === 'active') return [PreggaColors.sage400, PreggaColors.sage500];
+    if (subscription.status === 'active') return [PreggaColors.accent400, PreggaColors.accent500];
     if (subscription.status === 'trial') return [PreggaColors.warning400, PreggaColors.warning500];
     return [PreggaColors.neutral300, PreggaColors.neutral400];
   };

@@ -16,8 +16,12 @@ import {
   fetchUserBroadcasts,
   updateUserProfile,
   deleteUser,
+  fetchDeletionRequests,
+  approveDeletionRequest,
+  rejectDeletionRequest,
   type UserFilters,
 } from "../../../lib/api";
+import type { DeletionRequest } from "../../../types/database";
 import { friendlyError } from "../../../lib/errors";
 import { formatTimeAgo } from "../../../lib/formatTime";
 import type { UserWithProfile, ConversationWithUsers, BroadcastRequest } from "../../../types/database";
@@ -35,12 +39,15 @@ import {
   CreditCard,
   AlertCircle,
   Copy,
+  Check,
+  Eye,
 } from "lucide-react";
 import { TabSelector, Tab } from "../../ui";
 
 interface UsersViewProps {
   isMobile: boolean;
   subView?: string;
+  initialTab?: "active" | "requests";
   onNavigateToSubView?: (id: string) => void;
   onGoBack?: () => void;
   onNavigateToConversation?: (conversationId: string) => void;
@@ -122,9 +129,12 @@ function Shimmer({ width = "100%", height = 20, borderRadius = 6 }: { width?: st
   );
 }
 
-export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, onNavigateToConversation }: UsersViewProps) {
+export function UsersView({ isMobile, subView, initialTab, onNavigateToSubView, onGoBack, onNavigateToConversation }: UsersViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<UserFilters>({});
+  const [listTab, setListTab] = useState<"active" | "requests">(initialTab || "active");
+  const [isApproving, setIsApproving] = useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = useState<string | null>(null);
 
   const {
     data: users,
@@ -141,6 +151,50 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
     (from, to) => fetchUsers(from, to, { ...filters, search: searchQuery || undefined }),
     { pageSize: 10 }
   );
+
+  // User-initiated deletion requests (pending)
+  const { data: deletionRequests, isLoading: requestsLoading, refetch: refetchRequests } = useSupabaseQuery<(DeletionRequest & { user?: UserWithProfile })[]>(
+    ['deletion-requests'],
+    fetchDeletionRequests
+  );
+
+  // Track removed request IDs for optimistic UI updates
+  const [removedRequestIds, setRemovedRequestIds] = useState<string[]>([]);
+  const filteredDeletionRequests = deletionRequests?.filter(r => !removedRequestIds.includes(r.id)) || [];
+
+  const handleApproveRequest = async (requestId: string, userId: string) => {
+    setIsApproving(requestId);
+    try {
+      await approveDeletionRequest(requestId, userId);
+      // Optimistically remove from list immediately
+      setRemovedRequestIds(prev => [...prev, requestId]);
+      toast.success("User permanently deleted");
+      // Refresh in background
+      refetchRequests().then(() => setRemovedRequestIds([]));
+      refetch();
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setIsApproving(null);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    setIsRejecting(requestId);
+    try {
+      await rejectDeletionRequest(requestId);
+      // Optimistically remove from list immediately
+      setRemovedRequestIds(prev => [...prev, requestId]);
+      toast.success("Deletion request rejected - user kept active");
+      // Refresh in background
+      refetchRequests().then(() => setRemovedRequestIds([]));
+      refetch();
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setIsRejecting(null);
+    }
+  };
 
   if (subView) {
     return (
@@ -299,6 +353,116 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
     );
   }
 
+  // Columns for deletion requests (user-initiated, pending)
+  const requestColumns: TableColumn<DeletionRequest & { user?: UserWithProfile }>[] = [
+    {
+      key: "user",
+      label: "User",
+      width: "35%",
+      render: (_, row) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary500, fontSize: 13, fontWeight: 600, overflow: "hidden", flexShrink: 0 }}>
+            {row.user?.avatar_url ? (
+              <img src={row.user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              (row.user?.display_name || "U").split(" ").map((n) => n[0]).join("").slice(0, 2)
+            )}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 500, color: PreggaColors.neutral900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.user?.display_name || "Unnamed"}</div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.user?.email || row.user_email || "No contact"}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "reason",
+      label: "Reason",
+      width: "25%",
+      render: (_, row) => <span style={{ color: PreggaColors.neutral600, fontSize: 13 }}>{row.reason || "User requested"}</span>,
+    },
+    {
+      key: "requested_at",
+      label: "Requested",
+      width: "15%",
+      render: (_, row) => (
+        <span style={{ color: PreggaColors.neutral500, fontSize: 13 }}>{formatTimeAgo(row.requested_at)}</span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "",
+      width: "25%",
+      align: "right",
+      render: (_, row) => (
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (row.user) onNavigateToSubView?.(row.user.id);
+            }}
+            icon={<Eye size={14} />}
+          >
+            View
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (row.user) handleApproveRequest(row.id, row.user.id);
+            }}
+            disabled={isApproving === row.id || !row.user}
+            icon={<Check size={14} />}
+          >
+            {isApproving === row.id ? "..." : "Approve"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRejectRequest(row.id);
+            }}
+            disabled={isRejecting === row.id}
+            icon={<X size={14} />}
+          >
+            {isRejecting === row.id ? "..." : "Reject"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const renderRequestMobileCard = (req: DeletionRequest & { user?: UserWithProfile }) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.primary100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.primary500, fontWeight: 600, fontSize: 14, overflow: "hidden" }}>
+            {req.user?.avatar_url ? (
+              <img src={req.user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              (req.user?.display_name || "U").split(" ").map((n) => n[0]).join("").slice(0, 2)
+            )}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>{req.user?.display_name || "Unnamed"}</div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{req.user?.email || req.user_email}</div>
+          </div>
+        </div>
+        <StatusBadge status="pending" />
+      </div>
+      <div style={{ fontSize: 13, color: PreggaColors.neutral500 }}>{req.reason || "User requested account deletion"}</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button variant="outline" size="sm" onClick={() => req.user && onNavigateToSubView?.(req.user.id)} icon={<Eye size={14} />}>View</Button>
+        <Button variant="primary" size="sm" onClick={() => req.user && handleApproveRequest(req.id, req.user.id)} disabled={isApproving === req.id || !req.user} icon={<Check size={14} />}>Approve</Button>
+        <Button variant="outline" size="sm" onClick={() => handleRejectRequest(req.id)} disabled={isRejecting === req.id} icon={<X size={14} />}>Reject</Button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <style>{`
@@ -308,8 +472,46 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
         }
       `}</style>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${PreggaColors.neutral200}` }}>
+          <button
+            onClick={() => setListTab("active")}
+            style={{
+              padding: "12px 20px",
+              border: "none",
+              borderBottom: listTab === "active" ? `2px solid ${PreggaColors.accent500}` : "2px solid transparent",
+              background: "transparent",
+              color: listTab === "active" ? PreggaColors.accent700 : PreggaColors.neutral500,
+              fontSize: 14,
+              fontWeight: listTab === "active" ? 600 : 400,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              marginBottom: -1,
+            }}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setListTab("requests")}
+            style={{
+              padding: "12px 20px",
+              border: "none",
+              borderBottom: listTab === "requests" ? `2px solid ${PreggaColors.accent500}` : "2px solid transparent",
+              background: "transparent",
+              color: listTab === "requests" ? PreggaColors.accent700 : PreggaColors.neutral500,
+              fontSize: 14,
+              fontWeight: listTab === "requests" ? 600 : 400,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              marginBottom: -1,
+            }}
+          >
+            Deletion Requests ({filteredDeletionRequests.length})
+          </button>
+        </div>
+
         {/* Filters */}
-        {isMobile ? (
+        {listTab === "active" && isMobile ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", gap: 8 }}>
               <div style={{ flex: 1 }}>
@@ -357,7 +559,7 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
               )}
             </div>
           </div>
-        ) : (
+        ) : listTab === "active" ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 280 }}>
               <Input
@@ -405,23 +607,39 @@ export function UsersView({ isMobile, subView, onNavigateToSubView, onGoBack, on
               </button>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={users}
-          currentPage={page}
-          totalPages={totalPages}
-          totalItems={count}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onRowClick={(row) => onNavigateToSubView?.(row.id)}
-          emptyMessage="No users found"
-          isMobile={isMobile}
-          mobileCardRender={renderMobileCard}
-          isLoading={isLoading}
-        />
+        {listTab === "active" ? (
+          <DataTable
+            columns={columns}
+            data={users}
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onRowClick={(row) => onNavigateToSubView?.(row.id)}
+            emptyMessage="No users found"
+            isMobile={isMobile}
+            mobileCardRender={renderMobileCard}
+            isLoading={isLoading}
+          />
+        ) : (
+          <DataTable
+            columns={requestColumns}
+            data={filteredDeletionRequests}
+            currentPage={1}
+            totalPages={1}
+            totalItems={filteredDeletionRequests.length}
+            pageSize={50}
+            onPageChange={() => {}}
+            emptyMessage="No pending deletion requests"
+            isMobile={isMobile}
+            mobileCardRender={renderRequestMobileCard}
+            isLoading={requestsLoading}
+          />
+        )}
       </div>
     </>
   );
@@ -468,7 +686,7 @@ function UserDetailView({
     setIsDeleting(true);
     try {
       await deleteUser(user.id);
-      toast.success("User deletion request submitted");
+      toast.success("User permanently deleted");
       setShowDeleteModal(false);
       onRefresh?.();
       onGoBack?.();
@@ -524,7 +742,7 @@ function UserDetailView({
       {/* Header Card */}
       <Card padding="0" style={{ overflow: "hidden" }}>
         {/* Top gradient accent */}
-        <div style={{ height: 4, background: `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)` }} />
+        <div style={{ height: 4, background: `linear-gradient(90deg, ${PreggaColors.accent500} 0%, ${PreggaColors.accent400} 100%)` }} />
         
         <div style={{ padding: isMobile ? "20px" : "24px 28px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
@@ -554,7 +772,7 @@ function UserDetailView({
                   width: 56,
                   height: 56,
                   borderRadius: "50%",
-                  background: `linear-gradient(135deg, ${PreggaColors.sage400} 0%, ${PreggaColors.sage500} 100%)`,
+                  background: `linear-gradient(135deg, ${PreggaColors.accent400} 0%, ${PreggaColors.accent500} 100%)`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -682,7 +900,7 @@ function UserDetailView({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                   <div>
                     <div style={{ fontSize: 12, color: PreggaColors.neutral500, marginBottom: 6, textTransform: "uppercase", fontWeight: 500, letterSpacing: "0.5px" }}>Plan</div>
-                    <div style={{ fontSize: 26, fontWeight: 700, color: PreggaColors.sage600, textTransform: "capitalize" }}>
+                    <div style={{ fontSize: 26, fontWeight: 700, color: PreggaColors.accent600, textTransform: "capitalize" }}>
                       {activeSub.plan_type?.replace('_', ' ') || "Premium"}
                     </div>
                   </div>
@@ -765,7 +983,7 @@ function UserDetailView({
                     onMouseLeave={(e) => e.currentTarget.style.background = PreggaColors.neutral50}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 10, background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: PreggaColors.accent100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.accent600 }}>
                         <MessageCircle size={18} />
                       </div>
                       <div>
@@ -1008,7 +1226,7 @@ function StatItem({ label, value, highlight, isMobile, center, right }: {
       <div style={{ 
         fontSize: isMobile ? 16 : 18, 
         fontWeight: 600, 
-        color: highlight ? PreggaColors.sage600 : PreggaColors.neutral900,
+        color: highlight ? PreggaColors.accent600 : PreggaColors.neutral900,
         textTransform: label === "Subscription" ? "capitalize" : "none",
       }}>
         {value}

@@ -47,20 +47,20 @@ export function TabSelector({ tabs, activeTab, onTabChange, isMobile }: TabSelec
             justifyContent: "space-between",
             padding: "14px 16px",
             background: PreggaColors.white,
-            border: `1px solid ${dropdownOpen ? PreggaColors.sage400 : PreggaColors.secondary300}`,
+            border: `1px solid ${dropdownOpen ? PreggaColors.accent400 : PreggaColors.secondary300}`,
             borderRadius: 12,
             cursor: "pointer",
             fontFamily: "'Inter', -apple-system, sans-serif",
             fontSize: 14,
             fontWeight: 500,
             color: PreggaColors.neutral900,
-            boxShadow: dropdownOpen ? `0 0 0 3px ${PreggaColors.sage100}` : PreggaShadows.sm,
+            boxShadow: dropdownOpen ? `0 0 0 3px ${PreggaColors.accent100}` : PreggaShadows.sm,
             transition: "all 0.15s ease",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {activeTabData?.icon && (
-              <span style={{ color: PreggaColors.sage600, display: "flex" }}>
+              <span style={{ color: PreggaColors.accent600, display: "flex" }}>
                 {activeTabData.icon}
               </span>
             )}
@@ -113,13 +113,13 @@ export function TabSelector({ tabs, activeTab, onTabChange, isMobile }: TabSelec
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "14px 16px",
-                    background: isActive ? PreggaColors.sage50 : "transparent",
+                    background: isActive ? PreggaColors.accent50 : "transparent",
                     border: "none",
                     cursor: "pointer",
                     fontFamily: "'Inter', -apple-system, sans-serif",
                     fontSize: 14,
                     fontWeight: isActive ? 600 : 500,
-                    color: isActive ? PreggaColors.sage700 : PreggaColors.neutral700,
+                    color: isActive ? PreggaColors.accent700 : PreggaColors.neutral700,
                     transition: "background 0.1s ease",
                   }}
                   onMouseEnter={(e) => {
@@ -133,7 +133,7 @@ export function TabSelector({ tabs, activeTab, onTabChange, isMobile }: TabSelec
                     {tab.icon && (
                       <span
                         style={{
-                          color: isActive ? PreggaColors.sage600 : PreggaColors.neutral500,
+                          color: isActive ? PreggaColors.accent600 : PreggaColors.neutral500,
                           display: "flex",
                         }}
                       >
@@ -142,7 +142,7 @@ export function TabSelector({ tabs, activeTab, onTabChange, isMobile }: TabSelec
                     )}
                     {tab.label}
                   </div>
-                  {isActive && <Check size={16} style={{ color: PreggaColors.sage600 }} />}
+                  {isActive && <Check size={16} style={{ color: PreggaColors.accent600 }} />}
                 </button>
               );
             })}
@@ -200,7 +200,7 @@ export function TabSelector({ tabs, activeTab, onTabChange, isMobile }: TabSelec
             }}
           >
             {tab.icon && (
-              <span style={{ display: "flex", color: isActive ? PreggaColors.sage600 : "inherit" }}>
+              <span style={{ display: "flex", color: isActive ? PreggaColors.accent600 : "inherit" }}>
                 {tab.icon}
               </span>
             )}

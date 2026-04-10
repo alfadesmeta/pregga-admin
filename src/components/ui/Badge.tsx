@@ -64,10 +64,10 @@ const variantStyles: Record<BadgeVariant, { bg: string; color: string; dotColor:
     border: PreggaColors.accent200,
   },
   sage: {
-    bg: PreggaColors.sage50,
-    color: PreggaColors.sage700,
-    dotColor: PreggaColors.sage500,
-    border: PreggaColors.sage200,
+    bg: PreggaColors.accent50,
+    color: PreggaColors.accent700,
+    dotColor: PreggaColors.accent500,
+    border: PreggaColors.accent200,
   },
   rose: {
     bg: PreggaColors.rose50,
@@ -143,16 +143,16 @@ interface StatusBadgeProps {
 }
 
 const statusConfig: Record<string, { variant: BadgeVariant; label: string }> = {
-  active: { variant: "success", label: "Active" },
+  active: { variant: "accent", label: "Active" },
   inactive: { variant: "neutral", label: "Inactive" },
   pending: { variant: "warning", label: "Pending" },
   expired: { variant: "danger", label: "Expired" },
-  online: { variant: "success", label: "Online" },
+  online: { variant: "accent", label: "Online" },
   offline: { variant: "neutral", label: "Offline" },
-  verified: { variant: "sage", label: "Verified" },
+  verified: { variant: "accent", label: "Verified" },
   unverified: { variant: "warning", label: "Unverified" },
   cancelled: { variant: "danger", label: "Cancelled" },
-  accepted: { variant: "success", label: "Accepted" },
+  accepted: { variant: "accent", label: "Accepted" },
   rejected: { variant: "danger", label: "Rejected" },
   trial: { variant: "info", label: "Trial" },
 };

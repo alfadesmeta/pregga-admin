@@ -110,14 +110,15 @@ export const PreggaColors = {
   terracotta100: "#F5DDD8",
   terracotta50: "#FBF0EE",
 
-  // Sage/Green aliases
+  // Sage/Green aliases (same as accent for consistency)
   sage700: "#4A5A3F",
   sage600: "#5A6B4F",
   sage500: "#6B7B5F",
   sage400: "#7D8C70",
+  sage300: "#A3B196",
   sage200: "#C5D0BC",
-  sage100: "#E2E9DD",
-  sage50: "#F2F5F0",
+  sage100: "#E8EBE5",
+  sage50: "#F4F6F2",
 
   // Rose/Pink aliases
   rose700: "#9A5B4D",

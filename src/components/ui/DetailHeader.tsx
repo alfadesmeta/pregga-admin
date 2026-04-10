@@ -38,7 +38,7 @@ function StatItem({ label, value, highlight, isMobile, center, right }: StatItem
         style={{
           fontSize: 16,
           fontWeight: 600,
-          color: highlight ? PreggaColors.sage600 : PreggaColors.neutral900,
+          color: highlight ? PreggaColors.accent600 : PreggaColors.neutral900,
         }}
       >
         {value}
@@ -72,7 +72,7 @@ export function DetailHeader({
   subtitle,
   avatarUrl,
   avatarFallback,
-  avatarGradient = [PreggaColors.sage400, PreggaColors.sage500],
+  avatarGradient = [PreggaColors.accent400, PreggaColors.accent500],
   avatarIcon,
   onGoBack,
   action,

@@ -227,9 +227,9 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
-          <StatCard label="Total" value={count} icon={<Radio size={18} />} color={PreggaColors.sage500} delay={0} />
+          <StatCard label="Total" value={count} icon={<Radio size={18} />} color={PreggaColors.accent500} delay={0} />
           <StatCard label="Pending" value={pendingCount} icon={<Clock size={18} />} color={PreggaColors.warning500} delay={100} />
-          <StatCard label="Accepted" value={acceptedCount} icon={<Check size={18} />} color={PreggaColors.success500} delay={200} />
+          <StatCard label="Accepted" value={acceptedCount} icon={<Check size={18} />} color={PreggaColors.accent500} delay={200} />
           <StatCard label="Expired" value={expiredCount} icon={<XCircle size={18} />} color={PreggaColors.neutral400} delay={300} />
         </div>
       )}
@@ -399,7 +399,7 @@ function BroadcastDetailView({
   }
 
   const getStatusGradient = () => {
-    if (broadcast.status === 'accepted') return [PreggaColors.sage400, PreggaColors.sage500];
+    if (broadcast.status === 'accepted') return [PreggaColors.accent400, PreggaColors.accent500];
     if (broadcast.status === 'pending') return [PreggaColors.warning400, PreggaColors.warning500];
     return [PreggaColors.neutral300, PreggaColors.neutral400];
   };
@@ -491,7 +491,7 @@ function BroadcastDetailView({
             <Card padding="0">
               <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, display: "flex", alignItems: "center", gap: 8 }}>
-                  <Check size={18} color={PreggaColors.success500} />
+                  <Check size={18} color={PreggaColors.accent500} />
                   Accepted Doula
                 </h3>
               </div>
@@ -517,7 +517,7 @@ function BroadcastDetailView({
                     e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600, fontSize: 18, fontWeight: 600 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: PreggaColors.accent100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.accent600, fontSize: 18, fontWeight: 600 }}>
                     {(broadcast.accepted_doula?.display_name || "D").split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </div>
                   <div style={{ flex: 1 }}>

@@ -365,7 +365,7 @@ function ConversationListItem({
               width: 12,
               height: 12,
               borderRadius: "50%",
-              background: PreggaColors.success500,
+              background: PreggaColors.accent500,
               border: `2px solid ${PreggaColors.white}`,
             }}
           />
@@ -428,7 +428,7 @@ function ConversationDetailView({
   if (isLoading) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
-        <Loader2 size={24} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
+        <Loader2 size={24} color={PreggaColors.accent500} style={{ animation: "spin 1s linear infinite" }} />
       </div>
     );
   }
@@ -468,7 +468,7 @@ function ConversationDetailView({
           background: PreggaColors.white,
           borderRadius: 16,
           border: `1px solid ${PreggaColors.secondary300}`,
-          borderTop: `3px solid ${PreggaColors.sage500}`,
+          borderTop: `3px solid ${PreggaColors.accent500}`,
           overflow: "hidden",
         }}
       >
@@ -521,11 +521,11 @@ function ConversationDetailView({
               width: 48,
               height: 48,
               borderRadius: "50%",
-              background: PreggaColors.sage100,
+              background: PreggaColors.accent100,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: PreggaColors.sage600,
+              color: PreggaColors.accent600,
               fontSize: 16,
               fontWeight: 600,
               overflow: "hidden",
@@ -563,7 +563,7 @@ function ConversationDetailView({
           }}
         >
           <div>
-            <div style={{ fontSize: 11, fontWeight: 500, color: PreggaColors.sage600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: PreggaColors.accent600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
               With Doula
             </div>
             <div style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
@@ -571,7 +571,7 @@ function ConversationDetailView({
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, fontWeight: 500, color: PreggaColors.sage600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: PreggaColors.accent600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
               Started
             </div>
             <div style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
@@ -964,7 +964,7 @@ function MessageTranscript({
     >
       {isLoading ? (
         <div style={{ padding: 48, textAlign: "center" }}>
-          <Loader2 size={24} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
+          <Loader2 size={24} color={PreggaColors.accent500} style={{ animation: "spin 1s linear infinite" }} />
           <p style={{ marginTop: 12, color: "#9C9289", fontSize: 14 }}>Loading messages...</p>
         </div>
       ) : messages.length === 0 ? (
@@ -1029,7 +1029,7 @@ function MessageTranscript({
                           <div
                             style={{
                               width: 32, height: 32, borderRadius: "50%",
-                              background: `linear-gradient(135deg, ${PreggaColors.sage400}, ${PreggaColors.sage500})`,
+                              background: `linear-gradient(135deg, ${PreggaColors.accent400}, ${PreggaColors.accent500})`,
                               display: "flex", alignItems: "center", justifyContent: "center",
                               color: PreggaColors.white, fontSize: 11, fontWeight: 600,
                               overflow: "hidden", flexShrink: 0,

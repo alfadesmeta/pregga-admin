@@ -20,6 +20,8 @@ import {
   updateDoulaProfile,
   updateDoulaAvailability,
   deactivateDoula,
+  reactivateDoula,
+  fetchInactiveDoulas,
   type DoulaFilters,
 } from "../../../lib/api";
 import { friendlyError } from "../../../lib/errors";
@@ -43,6 +45,7 @@ import {
   Link2,
   UserMinus,
   Copy,
+  RotateCcw,
 } from "lucide-react";
 import { DetailHeader, TabSelector, Tab } from "../../ui";
 
@@ -106,6 +109,8 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<DoulaFilters>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [listTab, setListTab] = useState<"active" | "inactive">("active");
+  const [isReactivating, setIsReactivating] = useState<string | null>(null);
 
   const {
     data: doulas,
@@ -118,15 +123,35 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
     setPage,
     refetch,
   } = useSupabasePaginatedQuery<DoulaWithProfile>(
-    ['doulas', JSON.stringify(filters), searchQuery],
-    (from, to) => fetchDoulas(from, to, { ...filters, search: searchQuery || undefined }),
+    ['doulas', 'active', JSON.stringify(filters), searchQuery],
+    (from, to) => fetchDoulas(from, to, { ...filters, search: searchQuery || undefined, isAvailable: true }),
     { pageSize: 10 }
+  );
+
+  const { data: inactiveDoulas, isLoading: inactiveLoading, refetch: refetchInactive } = useSupabaseQuery<DoulaWithProfile[]>(
+    ['doulas', 'inactive'],
+    fetchInactiveDoulas
   );
 
   const { data: doulaKpis, refetch: refetchDoulaKpis } = useSupabaseQuery(
     ['doulas', 'kpi-counts'],
     () => fetchDoulaKpiCounts()
   );
+
+  const handleReactivate = async (doulaId: string) => {
+    setIsReactivating(doulaId);
+    try {
+      await reactivateDoula(doulaId);
+      toast.success("Doula reactivated successfully");
+      refetchInactive();
+      refetch();
+      refetchDoulaKpis();
+    } catch (err) {
+      toast.error(friendlyError(err));
+    } finally {
+      setIsReactivating(null);
+    }
+  };
 
   if (subView) {
     return (
@@ -136,7 +161,11 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
         onGoBack={onGoBack}
         onViewClient={onNavigateToUserWithReturn}
         onNavigateToConversation={onNavigateToConversation}
-        onRefresh={refetch}
+        onRefresh={() => {
+          refetch();
+          refetchInactive();
+          refetchDoulaKpis();
+        }}
       />
     );
   }
@@ -157,11 +186,11 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               width: 36,
               height: 36,
               borderRadius: "50%",
-              background: PreggaColors.sage100,
+              background: PreggaColors.accent100,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: PreggaColors.sage600,
+              color: PreggaColors.accent600,
               fontSize: 13,
               fontWeight: 600,
               overflow: "hidden",
@@ -194,7 +223,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
       key: "availability",
       label: "Status",
       render: (_, row) => (
-        <Badge variant={row.doula_profiles?.is_available ? "success" : "neutral"} size="sm">
+        <Badge variant={row.doula_profiles?.is_available ? "accent" : "neutral"} size="sm">
           {row.doula_profiles?.is_available ? "Available" : "Unavailable"}
         </Badge>
       ),
@@ -224,11 +253,11 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
               width: 40,
               height: 40,
               borderRadius: "50%",
-              background: PreggaColors.sage100,
+              background: PreggaColors.accent100,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: PreggaColors.sage600,
+              color: PreggaColors.accent600,
               fontWeight: 600,
               fontSize: 14,
               overflow: "hidden",
@@ -247,7 +276,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
             <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{doula.email || doula.phone}</div>
           </div>
         </div>
-        <Badge variant={doula.doula_profiles?.is_available ? "success" : "neutral"} size="sm">
+        <Badge variant={doula.doula_profiles?.is_available ? "accent" : "neutral"} size="sm">
           {doula.doula_profiles?.is_available ? "Available" : "Unavailable"}
         </Badge>
       </div>
@@ -271,10 +300,152 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
   const kpiTotal = doulaKpis?.total ?? count;
   const kpiAvailable = doulaKpis?.available ?? 0;
 
+  const inactiveColumns: TableColumn<DoulaWithProfile>[] = [
+    {
+      key: "id",
+      label: "Doula ID",
+      render: (_, row) => <CopyableId id={row.id} />,
+    },
+    {
+      key: "display_name",
+      label: "Doula",
+      render: (_, row) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: PreggaColors.neutral100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.neutral500, fontSize: 13, fontWeight: 600, overflow: "hidden" }}>
+            {row.avatar_url ? (
+              <img src={row.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              (row.display_name || "D").split(" ").map((n) => n[0]).join("").slice(0, 2)
+            )}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, color: PreggaColors.neutral900 }}>{row.display_name || "Unnamed"}</div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{row.email || row.phone || "No contact"}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "bio",
+      label: "Bio",
+      render: (_, row) => (
+        <span style={{ color: PreggaColors.neutral600, fontSize: 13 }}>
+          {row.doula_profiles?.bio?.slice(0, 50) || "—"}{row.doula_profiles?.bio && row.doula_profiles.bio.length > 50 ? "..." : ""}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: () => <Badge variant="neutral" size="sm">Inactive</Badge>,
+    },
+    {
+      key: "created_at",
+      label: "Joined",
+      render: (_, row) => (
+        <span style={{ color: PreggaColors.neutral500, fontSize: 13 }}>{formatTimeAgo(row.created_at)}</span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "",
+      render: (_, row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleReactivate(row.id);
+          }}
+          disabled={isReactivating === row.id}
+          icon={<RotateCcw size={14} />}
+        >
+          {isReactivating === row.id ? "..." : "Reactivate"}
+        </Button>
+      ),
+    },
+  ];
+
+  const renderInactiveMobileCard = (doula: DoulaWithProfile) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.neutral100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.neutral500, fontWeight: 600, fontSize: 14, overflow: "hidden" }}>
+            {doula.avatar_url ? (
+              <img src={doula.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              (doula.display_name || "D").split(" ").map((n) => n[0]).join("").slice(0, 2)
+            )}
+          </div>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: 14, color: PreggaColors.neutral900 }}>
+              {doula.display_name || "Unnamed"}
+            </div>
+            <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>{doula.email || doula.phone}</div>
+          </div>
+        </div>
+        <Badge variant="neutral" size="sm">Inactive</Badge>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: PreggaColors.neutral500, fontSize: 13 }}>Joined {formatTimeAgo(doula.created_at)}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleReactivate(doula.id);
+          }}
+          disabled={isReactivating === doula.id}
+          icon={<RotateCcw size={14} />}
+        >
+          {isReactivating === doula.id ? "..." : "Reactivate"}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Filters */}
-      {isMobile ? (
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${PreggaColors.neutral200}` }}>
+        <button
+          onClick={() => setListTab("active")}
+          style={{
+            padding: "12px 20px",
+            border: "none",
+            borderBottom: listTab === "active" ? `2px solid ${PreggaColors.accent500}` : "2px solid transparent",
+            background: "transparent",
+            color: listTab === "active" ? PreggaColors.accent700 : PreggaColors.neutral500,
+            fontSize: 14,
+            fontWeight: listTab === "active" ? 600 : 400,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            marginBottom: -1,
+          }}
+        >
+          Active Doulas
+        </button>
+        <button
+          onClick={() => setListTab("inactive")}
+          style={{
+            padding: "12px 20px",
+            border: "none",
+            borderBottom: listTab === "inactive" ? `2px solid ${PreggaColors.accent500}` : "2px solid transparent",
+            background: "transparent",
+            color: listTab === "inactive" ? PreggaColors.accent700 : PreggaColors.neutral500,
+            fontSize: 14,
+            fontWeight: listTab === "inactive" ? 600 : 400,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            marginBottom: -1,
+          }}
+        >
+          Inactive ({inactiveDoulas?.length ?? 0})
+        </button>
+      </div>
+
+      {/* Filters - only for active tab */}
+      {listTab === "active" && isMobile ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
@@ -308,7 +479,7 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
             )}
           </div>
         </div>
-      ) : (
+      ) : listTab === "active" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 280 }}>
             <Input
@@ -344,36 +515,55 @@ export function DoulasView({ isMobile, subView, onNavigateToSubView, onGoBack, o
             </Button>
           </div>
         </div>
+      ) : null}
+
+      {/* Stats - only for active tab */}
+      {listTab === "active" && (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
+          <StatCard label="Total Doulas" value={kpiTotal} icon={<Users size={18} />} color={PreggaColors.accent500} delay={0} />
+          <StatCard label="Available" value={kpiAvailable} icon={<Check size={18} />} color={PreggaColors.accent500} delay={100} />
+        </div>
       )}
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16 }}>
-        <StatCard label="Total Doulas" value={kpiTotal} icon={<Users size={18} />} color={PreggaColors.sage500} delay={0} />
-        <StatCard label="Available" value={kpiAvailable} icon={<Check size={18} />} color={PreggaColors.success500} delay={100} />
-      </div>
-
-      {/* Mobile Add Button */}
-      {isMobile && (
+      {/* Mobile Add Button - only for active tab */}
+      {listTab === "active" && isMobile && (
         <Button icon={<Plus size={16} />} onClick={() => setShowAddModal(true)} style={{ width: "100%" }}>
           Add Doula
         </Button>
       )}
 
       {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={doulas}
-        currentPage={page}
-        totalPages={totalPages}
-        totalItems={count}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onRowClick={(row) => onNavigateToSubView?.(row.id)}
-        emptyMessage="No doulas found"
-        isMobile={isMobile}
-        mobileCardRender={renderMobileCard}
-        isLoading={isLoading}
-      />
+      {listTab === "active" ? (
+        <DataTable
+          columns={columns}
+          data={doulas}
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={count}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onRowClick={(row) => onNavigateToSubView?.(row.id)}
+          emptyMessage="No doulas found"
+          isMobile={isMobile}
+          mobileCardRender={renderMobileCard}
+          isLoading={isLoading}
+        />
+      ) : (
+        <DataTable
+          columns={inactiveColumns}
+          data={inactiveDoulas || []}
+          currentPage={1}
+          totalPages={1}
+          totalItems={inactiveDoulas?.length || 0}
+          pageSize={50}
+          onPageChange={() => {}}
+          onRowClick={(row) => onNavigateToSubView?.(row.id)}
+          emptyMessage="No inactive doulas"
+          isMobile={isMobile}
+          mobileCardRender={renderInactiveMobileCard}
+          isLoading={inactiveLoading}
+        />
+      )}
 
       {/* Add Doula Modal */}
       <AddDoulaModal
@@ -465,8 +655,8 @@ function DoulaDetailView({
       toast.success("Doula account deactivated");
       setShowDeactivateModal(false);
       setDeactivateConfirmText("");
-      refetch();
       onRefresh?.();
+      onGoBack?.();
     } catch (err) {
       toast.error(friendlyError(err));
     } finally {
@@ -505,7 +695,7 @@ function DoulaDetailView({
         avatarUrl={doula.avatar_url}
         avatarFallback={doula.display_name || "Doula"}
         avatarGradient={isAvailable 
-          ? [PreggaColors.sage400, PreggaColors.sage500] 
+          ? [PreggaColors.accent400, PreggaColors.accent500] 
           : [PreggaColors.neutral400, PreggaColors.neutral500]}
         onGoBack={() => onGoBack?.()}
         action={<Button icon={<Pencil size={15} />} onClick={() => setShowEditModal(true)} size="sm">Edit</Button>}
@@ -515,7 +705,7 @@ function DoulaDetailView({
         ]}
         isMobile={isMobile}
         accentColor={isAvailable 
-          ? `linear-gradient(90deg, ${PreggaColors.sage500} 0%, ${PreggaColors.sage400} 100%)` 
+          ? `linear-gradient(90deg, ${PreggaColors.accent500} 0%, ${PreggaColors.accent400} 100%)` 
           : `linear-gradient(90deg, ${PreggaColors.neutral500} 0%, ${PreggaColors.neutral400} 100%)`}
       />
 
@@ -552,8 +742,8 @@ function DoulaDetailView({
                       display: "inline-flex",
                       alignItems: "center",
                       padding: "6px 12px",
-                      background: PreggaColors.sage50,
-                      color: PreggaColors.sage700,
+                      background: PreggaColors.accent50,
+                      color: PreggaColors.accent700,
                       borderRadius: 16,
                       fontSize: 13,
                       fontWeight: 500,
@@ -600,7 +790,7 @@ function DoulaDetailView({
                 borderRadius: 15,
                 border: "none",
                 outline: "none",
-                background: isAvailable ? PreggaColors.sage500 : PreggaColors.neutral300,
+                background: isAvailable ? PreggaColors.accent500 : PreggaColors.neutral300,
                 cursor: isTogglingAvailability ? "wait" : "pointer",
                 transition: "background 0.2s ease",
                 padding: 0,
@@ -630,19 +820,19 @@ function DoulaDetailView({
             gap: 8, 
             padding: "8px 16px", 
             borderRadius: 20,
-            background: isAvailable ? PreggaColors.sage50 : PreggaColors.neutral100,
+            background: isAvailable ? PreggaColors.accent50 : PreggaColors.neutral100,
             marginBottom: 20,
           }}>
             <div style={{
               width: 8,
               height: 8,
               borderRadius: "50%",
-              background: isAvailable ? PreggaColors.sage500 : PreggaColors.neutral400,
+              background: isAvailable ? PreggaColors.accent500 : PreggaColors.neutral400,
             }} />
             <span style={{ 
               fontSize: 14, 
               fontWeight: 500, 
-              color: isAvailable ? PreggaColors.sage700 : PreggaColors.neutral600
+              color: isAvailable ? PreggaColors.accent700 : PreggaColors.neutral600
             }}>
               {isAvailable ? "Available" : "Unavailable"}
             </span>
@@ -772,7 +962,7 @@ function DoulaDetailView({
                   onMouseLeave={(e) => (e.currentTarget.parentElement as HTMLElement).style.background = PreggaColors.white}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.sage100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.sage600 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: PreggaColors.accent100, display: "flex", alignItems: "center", justifyContent: "center", color: PreggaColors.accent600 }}>
                       <MessageCircle size={18} />
                     </div>
                     <div>
@@ -1186,8 +1376,8 @@ function EditDoulaModal({
                   alignItems: "center",
                   gap: 6,
                   padding: "6px 10px",
-                  background: PreggaColors.sage50,
-                  color: PreggaColors.sage700,
+                  background: PreggaColors.accent50,
+                  color: PreggaColors.accent700,
                   borderRadius: 16,
                   fontSize: 13,
                   fontWeight: 500,
@@ -1205,8 +1395,8 @@ function EditDoulaModal({
                     height: 16,
                     borderRadius: "50%",
                     border: "none",
-                    background: PreggaColors.sage200,
-                    color: PreggaColors.sage700,
+                    background: PreggaColors.accent200,
+                    color: PreggaColors.accent700,
                     cursor: "pointer",
                     fontSize: 12,
                     lineHeight: 1,

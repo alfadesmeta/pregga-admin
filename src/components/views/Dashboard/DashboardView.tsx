@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useCountUp, useSupabaseQuery } from "../../../hooks";
 import { PreggaColors } from "../../../theme/colors";
 import { Card } from "../../ui/Card";
-import { Badge } from "../../ui/Badge";
-import { Button } from "../../ui/Button";
 import {
   Users,
   Heart,
@@ -27,20 +25,21 @@ import {
 import {
   fetchDashboardStats,
   fetchRecentUsers,
-  fetchPendingVerifications,
   fetchDailyRegistrations,
+  fetchDeletionRequests,
   type DashboardStats,
 } from "../../../lib/api";
 import { formatTimeAgo } from "../../../lib/formatTime";
-import type { UserWithProfile, DoulaWithProfile } from "../../../types/database";
+import type { UserWithProfile, DeletionRequest } from "../../../types/database";
+import { Trash2 } from "lucide-react";
 
 interface DashboardViewProps {
   isMobile: boolean;
   onNavigateToSubView?: (section: string, id: string) => void;
-  onNavigateToSection?: (section: string) => void;
+  onNavigateToSection?: (section: string, tab?: string) => void;
 }
 
-const chartLineColor = PreggaColors.sage500;
+const chartLineColor = PreggaColors.accent500;
 
 function getActivityIcon(type: string) {
   switch (type) {
@@ -62,13 +61,13 @@ function getActivityIcon(type: string) {
 function getActivityColor(type: string) {
   switch (type) {
     case "new_user":
-      return PreggaColors.sage500;
+      return PreggaColors.accent500;
     case "new_doula":
       return PreggaColors.rose500;
     case "verification":
       return PreggaColors.warning500;
     case "payment":
-      return PreggaColors.success500;
+      return PreggaColors.accent500;
     case "chat_started":
       return PreggaColors.info500;
     default:
@@ -139,11 +138,6 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
     () => fetchRecentUsers(5)
   );
 
-  const { data: pendingVerifications, isLoading: verificationsLoading } = useSupabaseQuery<DoulaWithProfile[]>(
-    ['dashboard', 'verifications'],
-    fetchPendingVerifications
-  );
-
   const { data: weeklyData, isLoading: weeklyLoading } = useSupabaseQuery<{ date: string; count: number }[]>(
     ['dashboard', 'dailyRegistrations', 'week'],
     () => fetchDailyRegistrations(7)
@@ -152,6 +146,11 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
   const { data: monthlyData, isLoading: monthlyLoading } = useSupabaseQuery<{ date: string; count: number }[]>(
     ['dashboard', 'dailyRegistrations', 'month'],
     () => fetchDailyRegistrations(30)
+  );
+
+  const { data: deletionRequests, isLoading: deletionLoading } = useSupabaseQuery<(DeletionRequest & { user?: UserWithProfile })[]>(
+    ['dashboard', 'deletion-requests'],
+    fetchDeletionRequests
   );
 
   const chartLoading = chartPeriod === "week" ? weeklyLoading : monthlyLoading;
@@ -226,18 +225,17 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
                 title="Total Users"
                 numericValue={stats?.totalUsers || 0}
                 subtitle={`${stats?.activeSubscriptions || 0} subscribed`}
-                subtitleColor={PreggaColors.success600}
+                subtitleColor={PreggaColors.accent600}
                 icon={<Users size={20} />}
-                iconBg={PreggaColors.sage100}
-                iconColor={PreggaColors.sage600}
+                iconBg={PreggaColors.accent100}
+                iconColor={PreggaColors.accent600}
                 delay={0}
                 onClick={() => onNavigateToSection?.("Users")}
               />
               <AnimatedStatCard
                 title="Active Doulas"
                 numericValue={stats?.activeDoulas || 0}
-                subtitle={`${stats?.pendingVerifications || 0} pending`}
-                subtitleColor={stats?.pendingVerifications ? PreggaColors.warning600 : undefined}
+                subtitle={`${stats?.totalDoulas || 0} total`}
                 icon={<Heart size={20} />}
                 iconBg={PreggaColors.rose100}
                 iconColor={PreggaColors.rose600}
@@ -290,7 +288,7 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
           />
 
           <Card title="Doula Status" subtitle="Availability overview" delay={450}>
-            {verificationsLoading ? (
+            {statsLoading ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {[1, 2, 3, 4].map(i => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px" }}>
@@ -306,7 +304,6 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {[
                   { label: "Available Doulas", value: stats?.activeDoulas || 0 },
-                  { label: "Pending Verification", value: stats?.pendingVerifications || 0 },
                   { label: "Total Doulas", value: stats?.totalDoulas || 0 },
                 ].map((item, i, arr) => (
                   <div
@@ -336,86 +333,97 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
             gap: 20,
           }}
         >
-          {/* Pending Verifications */}
-          <Card
-            title="Pending Verifications"
-            subtitle={`${pendingVerifications?.length || 0} doulas awaiting review`}
+          {/* Deletion Requests */}
+          <Card 
+            title="Deletion Requests" 
+            subtitle={`${deletionRequests?.length || 0} pending`}
+            action={deletionRequests && deletionRequests.length > 0 ? (
+              <span 
+                onClick={() => onNavigateToSection?.("Users", "requests")}
+                style={{ fontSize: 13, color: PreggaColors.accent600, cursor: "pointer", fontWeight: 500 }}
+              >
+                View All
+              </span>
+            ) : undefined}
             delay={600}
-            action={
-              pendingVerifications && pendingVerifications.length > 0 ? (
-                <Badge variant="warning" size="sm">
-                  {pendingVerifications.length} Pending
-                </Badge>
-              ) : null
-            }
           >
-            {verificationsLoading ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {deletionLoading ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {[1, 2, 3].map(i => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
                     <Shimmer width={36} height={36} borderRadius={18} />
                     <div style={{ flex: 1 }}>
                       <Shimmer width={120} height={14} />
-                      <div style={{ marginTop: 4 }}><Shimmer width={80} height={10} /></div>
+                      <div style={{ marginTop: 4 }}><Shimmer width={180} height={12} /></div>
                     </div>
-                    <Shimmer width={60} height={28} borderRadius={6} />
+                    <Shimmer width={50} height={10} />
                   </div>
                 ))}
               </div>
-            ) : pendingVerifications && pendingVerifications.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {pendingVerifications.slice(0, 5).map((doula) => (
+            ) : deletionRequests && deletionRequests.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {deletionRequests.slice(0, 5).map((request, index) => (
                   <div
-                    key={doula.id}
+                    key={request.id}
+                    onClick={() => request.user && onNavigateToSubView?.("Users", request.user.id)}
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "12px 14px",
-                      borderRadius: 10,
-                      border: `1px solid ${PreggaColors.neutral100}`,
-                      transition: "border-color 0.12s",
+                      gap: 12,
+                      padding: "12px 0",
+                      borderBottom:
+                        index < Math.min(deletionRequests.length, 5) - 1
+                          ? `1px solid ${PreggaColors.neutral100}`
+                          : "none",
                       cursor: "pointer",
+                      borderRadius: 6,
+                      margin: "0 -4px",
+                      paddingLeft: 4,
+                      paddingRight: 4,
+                      transition: "background 0.12s",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = PreggaColors.neutral300)}
-                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = PreggaColors.neutral100)}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.neutral50)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: PreggaColors.error100,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: PreggaColors.error500,
+                        flexShrink: 0,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {request.user?.avatar_url ? (
+                        <img src={request.user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: PreggaColors.neutral900 }}>
+                        {request.user?.display_name || "Unknown User"}
+                      </div>
                       <div
                         style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: "50%",
-                          background: PreggaColors.rose100,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: PreggaColors.rose600,
+                          fontSize: 12,
+                          color: PreggaColors.neutral500,
+                          whiteSpace: "nowrap",
                           overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
-                        {doula.avatar_url ? (
-                          <img src={doula.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          <Heart size={16} />
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: PreggaColors.neutral900 }}>
-                          {doula.display_name || "Unnamed Doula"}
-                        </div>
-                        <div style={{ fontSize: 12, color: PreggaColors.neutral500 }}>
-                          Applied {formatTimeAgo(doula.created_at)}
-                        </div>
+                        {request.reason || "User requested account deletion"}
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onNavigateToSubView?.("Doulas", doula.id)}
-                    >
-                      Review
-                    </Button>
+                    <div style={{ fontSize: 11, color: PreggaColors.warning600, whiteSpace: "nowrap" }}>
+                      {formatTimeAgo(request.requested_at)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -426,8 +434,7 @@ export function DashboardView({ isMobile, onNavigateToSubView, onNavigateToSecti
                 color: PreggaColors.neutral400,
                 fontSize: 14,
               }}>
-                <CheckCircle size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
-                <div>No pending verifications</div>
+                No pending deletion requests
               </div>
             )}
           </Card>
@@ -570,7 +577,7 @@ function AnimatedStatCard({
         borderRadius: 16,
         padding: 20,
         boxShadow: hovered && onClick ? "0 4px 12px rgba(107, 127, 95, 0.12)" : "0 1px 3px rgba(0, 0, 0, 0.08)",
-        border: `1px solid ${hovered && onClick ? PreggaColors.sage400 : "transparent"}`,
+        border: `1px solid ${hovered && onClick ? PreggaColors.accent400 : "transparent"}`,
         display: "flex",
         flexDirection: "column",
         gap: 12,
@@ -680,7 +687,7 @@ function ChartCard({
           <span style={{ fontSize: 22, fontWeight: 700, color: PreggaColors.neutral900 }}>
             {animatedTotal}
           </span>
-          <TrendingUp size={16} color={PreggaColors.success500} />
+          <TrendingUp size={16} color={PreggaColors.accent500} />
         </div>
       </div>
 
@@ -746,7 +753,7 @@ function ChartCard({
                           {payload[0]?.payload?.fullDate || label}
                         </div>
                         <div style={{ fontSize: 13, color: PreggaColors.neutral700 }}>
-                          <span style={{ fontWeight: 600, color: PreggaColors.sage600 }}>
+                          <span style={{ fontWeight: 600, color: PreggaColors.accent600 }}>
                             {payload[0].value}
                           </span>
                           {" "}registrations
@@ -794,7 +801,7 @@ function ChartCard({
           gap: 10,
           marginTop: 14,
           padding: "12px 14px",
-          background: PreggaColors.sage50,
+          background: PreggaColors.accent50,
           borderRadius: 10,
         }}
       >
@@ -804,11 +811,11 @@ function ChartCard({
               width: 32,
               height: 32,
               borderRadius: 8,
-              background: PreggaColors.sage100,
+              background: PreggaColors.accent100,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: PreggaColors.sage600,
+              color: PreggaColors.accent600,
             }}
           >
             <TrendingUp size={16} />
@@ -837,7 +844,7 @@ function ChartCard({
               padding: "6px 12px",
               borderRadius: 6,
               border: "none",
-              background: period === "week" ? PreggaColors.sage500 : "transparent",
+              background: period === "week" ? PreggaColors.accent500 : "transparent",
               color: period === "week" ? PreggaColors.white : PreggaColors.neutral600,
               fontSize: 12,
               fontWeight: 500,
@@ -853,7 +860,7 @@ function ChartCard({
               padding: "6px 12px",
               borderRadius: 6,
               border: "none",
-              background: period === "month" ? PreggaColors.sage500 : "transparent",
+              background: period === "month" ? PreggaColors.accent500 : "transparent",
               color: period === "month" ? PreggaColors.white : PreggaColors.neutral600,
               fontSize: 12,
               fontWeight: 500,

@@ -123,7 +123,7 @@ export function Header({
               transition: "border-color 0.15s, box-shadow 0.15s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = PreggaColors.sage400;
+              e.currentTarget.style.borderColor = PreggaColors.accent400;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.borderColor = PreggaColors.secondary300;
@@ -184,13 +184,13 @@ export function Header({
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              color: isRefreshing ? PreggaColors.sage600 : PreggaColors.neutral600,
+              color: isRefreshing ? PreggaColors.accent600 : PreggaColors.neutral600,
               transition: "all 0.15s",
             }}
             onMouseEnter={(e) => {
               if (!isRefreshing) {
-                e.currentTarget.style.borderColor = PreggaColors.sage400;
-                e.currentTarget.style.color = PreggaColors.sage600;
+                e.currentTarget.style.borderColor = PreggaColors.accent400;
+                e.currentTarget.style.color = PreggaColors.accent600;
               }
             }}
             onMouseLeave={(e) => {

@@ -99,13 +99,13 @@ const variantStyles: Record<ButtonVariant, { base: React.CSSProperties; hover: R
   },
   sage: {
     base: {
-      background: PreggaColors.sage500,
+      background: PreggaColors.accent500,
       color: PreggaColors.white,
       border: "none",
       boxShadow: "0 1px 3px rgba(107, 127, 108, 0.2)",
     },
     hover: {
-      background: PreggaColors.sage600,
+      background: PreggaColors.accent600,
       boxShadow: "0 4px 6px rgba(107, 127, 108, 0.25)",
       transform: "translateY(-1px)",
     },

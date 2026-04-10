@@ -184,7 +184,7 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
                   textAlign: "left",
                   transition: "background 0.1s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.sage50)}
+                onMouseEnter={(e) => (e.currentTarget.style.background = PreggaColors.accent50)}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <div
@@ -192,11 +192,11 @@ export function SearchModal({ open, onClose, onSelect, results = [] }: SearchMod
                     width: 32,
                     height: 32,
                     borderRadius: 8,
-                    background: PreggaColors.sage100,
+                    background: PreggaColors.accent100,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: PreggaColors.sage700,
+                    color: PreggaColors.accent700,
                   }}
                 >
                   {result.icon}

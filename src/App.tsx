@@ -25,7 +25,7 @@ const toasterConfig = {
       padding: "12px 16px",
       boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
     },
-    success: { iconTheme: { primary: PreggaColors.sage500, secondary: "#fff" } },
+    success: { iconTheme: { primary: PreggaColors.accent500, secondary: "#fff" } },
     error: { iconTheme: { primary: "#E55B50", secondary: "#fff" } },
   },
 };

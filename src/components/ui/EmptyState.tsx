@@ -26,11 +26,11 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
           width: 56,
           height: 56,
           borderRadius: 14,
-          background: PreggaColors.sage100,
+          background: PreggaColors.accent100,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: PreggaColors.sage400,
+          color: PreggaColors.accent400,
           marginBottom: 16,
         }}
       >

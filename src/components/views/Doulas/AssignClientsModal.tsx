@@ -101,7 +101,7 @@ export function AssignClientsModal({ open, onClose, doulaId, doulaName }: Assign
         >
           {isLoading ? (
             <div style={{ padding: 40, textAlign: "center" }}>
-              <Loader2 size={20} color={PreggaColors.sage500} style={{ animation: "spin 1s linear infinite" }} />
+              <Loader2 size={20} color={PreggaColors.accent500} style={{ animation: "spin 1s linear infinite" }} />
               <p style={{ fontSize: 13, color: PreggaColors.neutral500, marginTop: 8 }}>Searching...</p>
             </div>
           ) : users.length === 0 ? (

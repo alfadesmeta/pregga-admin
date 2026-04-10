@@ -7,6 +7,7 @@ import type {
   Subscription,
   WeeklyContent,
   AppConfig,
+  DeletionRequest,
   UserWithProfile,
   DoulaWithProfile,
   ConversationWithUsers,
@@ -270,9 +271,48 @@ export async function updateUserProfile(
 }
 
 export async function deleteUser(id: string): Promise<void> {
+  // Permanently delete user via edge function
+  const { error } = await supabase.functions.invoke('delete-user', {
+    body: { user_id: id }
+  });
+
+  if (error) throw error;
+}
+
+export async function fetchDeletionRequests(): Promise<(DeletionRequest & { user?: UserWithProfile })[]> {
+  // Fetch user-initiated deletion requests (pending status)
+  const { data, error } = await supabase
+    .from('deletion_requests')
+    .select(`
+      *,
+      user:profiles!deletion_requests_user_id_fkey (
+        *,
+        pregnant_profiles (*),
+        subscriptions (*)
+      )
+    `)
+    .eq('status', 'pending')
+    .order('requested_at', { ascending: false });
+
+  if (error) throw error;
+  return data as (DeletionRequest & { user?: UserWithProfile })[];
+}
+
+export async function approveDeletionRequest(requestId: string, userId: string): Promise<void> {
+  // Approve and permanently delete the user
+  const { error } = await supabase.functions.invoke('delete-user', {
+    body: { user_id: userId, request_id: requestId }
+  });
+
+  if (error) throw error;
+}
+
+export async function rejectDeletionRequest(requestId: string): Promise<void> {
+  // Reject user's deletion request - remove the request
   const { error } = await supabase
     .from('deletion_requests')
-    .insert({ user_id: id, reason: 'Admin deleted', status: 'pending' });
+    .delete()
+    .eq('id', requestId);
 
   if (error) throw error;
 }
@@ -414,6 +454,30 @@ export async function deactivateDoula(id: string): Promise<void> {
     .eq('user_id', id);
 
   if (error) throw error;
+}
+
+export async function reactivateDoula(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('doula_profiles')
+    .update({ is_available: true })
+    .eq('user_id', id);
+
+  if (error) throw error;
+}
+
+export async function fetchInactiveDoulas(): Promise<DoulaWithProfile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(`
+      *,
+      doula_profiles!inner (*)
+    `)
+    .eq('user_role', 'doula')
+    .eq('doula_profiles.is_available', false)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data as DoulaWithProfile[];
 }
 
 export async function fetchDoulaClients(doulaId: string): Promise<UserWithProfile[]> {
