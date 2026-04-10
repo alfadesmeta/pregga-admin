@@ -396,17 +396,6 @@ function ConversationListItem({
         </div>
       </div>
 
-      {/* Messages count - hide on mobile */}
-      {!isMobile && (
-        <div style={{ textAlign: "center", minWidth: 60 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, color: PreggaColors.neutral500, fontSize: 13 }}>
-            <MessageCircle size={14} />
-            <span style={{ fontWeight: 500 }}>—</span>
-          </div>
-          <div style={{ fontSize: 11, color: PreggaColors.neutral400 }}>messages</div>
-        </div>
-      )}
-
       {/* Status Badge */}
       <Badge variant={status.variant} size="sm">
         {status.label}
