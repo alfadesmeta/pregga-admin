@@ -30,7 +30,6 @@ import {
   User,
   Users,
   Check,
-  MessageSquare,
   Settings,
 } from "lucide-react";
 import { DetailHeader, TabSelector, Tab } from "../../ui";
@@ -145,16 +144,6 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
             </div>
           </div>
         </div>
-      ),
-    },
-    {
-      key: "message",
-      label: "Message",
-      render: (_: unknown, broadcast: BroadcastWithDetails) => (
-        <span style={{ fontSize: 13, color: PreggaColors.neutral600 }}>
-          {broadcast.initial_message?.slice(0, 50) || "No message"}
-          {broadcast.initial_message && broadcast.initial_message.length > 50 ? "..." : ""}
-        </span>
       ),
     },
     {
@@ -277,10 +266,6 @@ export function BroadcastsView({ isMobile, subView, onNavigateToSubView, onGoBac
               </div>
               <Badge variant={getStatusBadgeVariant(broadcast.status)}>{broadcast.status.replace('_', ' ')}</Badge>
             </div>
-            <div style={{ fontSize: 13, color: PreggaColors.neutral600 }}>
-              {broadcast.initial_message?.slice(0, 80) || "No message"}
-              {broadcast.initial_message && broadcast.initial_message.length > 80 ? "..." : ""}
-            </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: PreggaColors.neutral500 }}>
               <span>{broadcast.notified_doula_ids?.length || 0} doulas notified</span>
               <span>{broadcast.rejections?.length || 0} rejections</span>
@@ -323,7 +308,7 @@ function BroadcastDetailView({
   onNavigateToUser?: (userId: string) => void;
   onNavigateToDoula?: (doulaId: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"user" | "message" | "doulas" | "actions">("user");
+  const [activeTab, setActiveTab] = useState<"user" | "doulas" | "actions">("user");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cancelConfirmText, setCancelConfirmText] = useState("");
@@ -372,7 +357,6 @@ function BroadcastDetailView({
 
   const tabs: Tab[] = [
     { id: "user", label: "Requester", icon: <User size={15} /> },
-    { id: "message", label: "Message", icon: <MessageSquare size={15} /> },
     { id: "doulas", label: "Doulas", icon: <Users size={15} /> },
     ...(broadcast.status === 'pending' ? [{ id: "actions" as const, label: "Actions", icon: <Settings size={15} /> }] : []),
   ];
@@ -446,21 +430,6 @@ function BroadcastDetailView({
               {broadcast.user?.id && onNavigateToUser && (
                 <div style={{ color: PreggaColors.neutral400, fontSize: 12 }}>View Profile →</div>
               )}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {activeTab === "message" && (
-        <Card padding="0">
-          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${PreggaColors.neutral100}` }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900 }}>
-              Initial Message
-            </h3>
-          </div>
-          <div style={{ padding: 24 }}>
-            <div style={{ padding: 16, background: PreggaColors.cream50, borderRadius: 8, fontSize: 14, color: PreggaColors.neutral700, lineHeight: 1.6 }}>
-              {broadcast.initial_message || "No message provided"}
             </div>
           </div>
         </Card>
