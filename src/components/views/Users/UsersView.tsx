@@ -591,7 +591,10 @@ function UserDetailView({
               <DetailRow label="Full Name" value={user.display_name || "—"} />
               <DetailRow label="Email Address" value={user.email || "—"} />
               <DetailRow label="Phone Number" value={user.phone || "—"} />
+              <DetailRow label="Age" value={user.age ? `${user.age} years` : "—"} />
               <DetailRow label="Auth Provider" value={user.auth_provider || "email"} />
+              <DetailRow label="Onboarding Status" value={user.onboarding_step === 3 ? "Complete" : user.onboarding_step ? `Step ${user.onboarding_step} of 3` : "Not started"} />
+              <DetailRow label="Push Notifications" value={user.push_token ? `Enabled (${user.push_platform || "unknown"})` : "Not registered"} />
               <DetailRow label="Account Created" value={formatDate(user.created_at)} />
               <DetailRow label="Last Updated" value={formatDate(user.updated_at)} />
             </div>
@@ -611,7 +614,7 @@ function UserDetailView({
               <DetailRow label="Due Date" value={user.pregnant_profiles?.due_date ? formatDate(user.pregnant_profiles.due_date) : "Not set"} />
               <DetailRow label="Current Week" value={pregnancyWeek ? `Week ${pregnancyWeek}` : "—"} />
               <DetailRow label="Trimester" value={pregnancyWeek ? (pregnancyWeek <= 13 ? "First Trimester" : pregnancyWeek <= 26 ? "Second Trimester" : "Third Trimester") : "—"} />
-              <DetailRow label="Onboarding Status" value={user.onboarding_step != null && user.onboarding_step >= 3 ? "Completed" : "Pending"} />
+              <DetailRow label="Trying to Conceive" value={user.pregnant_profiles?.is_trying_to_conceive ? "Yes" : "No"} />
             </div>
           </div>
         </Card>

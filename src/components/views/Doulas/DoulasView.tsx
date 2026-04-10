@@ -485,8 +485,12 @@ function DoulaDetailView({
           <InfoCard label="Email" value={doula.email || "—"} />
           <InfoCard label="Phone" value={doula.phone || "—"} />
           <InfoCard label="Years of Experience" value={doula.doula_profiles?.years_experience ? `${doula.doula_profiles.years_experience} years` : "—"} />
+          <InfoCard label="Rating" value={doula.doula_profiles?.rating_avg ? `${doula.doula_profiles.rating_avg.toFixed(1)} ★ (${doula.doula_profiles.rating_count || 0} reviews)` : "No ratings yet"} />
+          <InfoCard label="Online Status" value={doula.doula_profiles?.is_online ? "Online" : "Offline"} />
+          <InfoCard label="Last Seen" value={doula.doula_profiles?.last_seen_at ? formatDate(doula.doula_profiles.last_seen_at) : "Never"} />
           <InfoCard label="Auth Provider" value={doula.auth_provider || "—"} />
           <InfoCard label="Created" value={formatDate(doula.created_at)} />
+          <InfoCard label="Last Updated" value={formatDate(doula.updated_at)} />
           
           {/* Expertise Tags */}
           <Card padding="16px" style={{ gridColumn: isMobile ? "1" : "1 / -1" }}>
