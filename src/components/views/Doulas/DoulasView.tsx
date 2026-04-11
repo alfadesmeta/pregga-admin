@@ -683,7 +683,7 @@ function DoulaDetailView({
     { id: "availability", label: "Availability", icon: <ToggleRight size={15} /> },
     { id: "clients", label: "Clients", icon: <Users size={15} /> },
     { id: "conversations", label: "Conversations", icon: <MessageCircle size={15} /> },
-    { id: "deactivate", label: "Deactivate", icon: <Trash2 size={15} /> },
+    { id: "deactivate", label: doula.doula_profiles?.is_available === false ? "Reactivate" : "Deactivate", icon: doula.doula_profiles?.is_available === false ? <RotateCcw size={15} /> : <Trash2 size={15} /> },
   ];
 
   return (
@@ -991,48 +991,100 @@ function DoulaDetailView({
 
       {activeTab === "deactivate" && (
         <Card padding="24px">
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: 20, background: PreggaColors.error50, borderRadius: 12, border: `1px solid ${PreggaColors.error100}` }}>
-            <div style={{ width: 44, height: 44, borderRadius: 10, background: PreggaColors.white, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <AlertTriangle size={22} color={PreggaColors.error500} />
+          {doula.doula_profiles?.is_available === false ? (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: 20, background: PreggaColors.accent50, borderRadius: 12, border: `1px solid ${PreggaColors.accent100}` }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: PreggaColors.white, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <RotateCcw size={22} color={PreggaColors.accent600} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 6px" }}>
+                  Reactivate Doula Account
+                </h3>
+                <p style={{ fontSize: 13, color: PreggaColors.neutral600, margin: "0 0 16px", lineHeight: 1.5 }}>
+                  This doula account is currently deactivated. Reactivating will make them available
+                  again and they will appear in search results for users.
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      await reactivateDoula(doula.id);
+                      toast.success("Doula reactivated successfully");
+                      refetch();
+                      onRefresh?.();
+                    } catch (err) {
+                      toast.error(friendlyError(err));
+                    }
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    borderRadius: 8,
+                    border: `1px solid ${PreggaColors.accent500}`,
+                    color: PreggaColors.white,
+                    background: PreggaColors.accent500,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = PreggaColors.accent600;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = PreggaColors.accent500;
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  Reactivate Account
+                </button>
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 6px" }}>
-                Deactivate Doula Account
-              </h3>
-              <p style={{ fontSize: 13, color: PreggaColors.neutral600, margin: "0 0 16px", lineHeight: 1.5 }}>
-                Deactivating this doula will mark them as unavailable.
-                They will no longer appear in search results for users. This action can be reversed.
-              </p>
-              <button
-                onClick={() => setShowDeactivateModal(true)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  borderRadius: 8,
-                  border: `1px solid ${PreggaColors.error400}`,
-                  color: PreggaColors.error600,
-                  background: PreggaColors.white,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = PreggaColors.error50;
-                  e.currentTarget.style.borderColor = PreggaColors.error500;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = PreggaColors.white;
-                  e.currentTarget.style.borderColor = PreggaColors.error400;
-                }}
-              >
-                <Trash2 size={14} />
-                Deactivate Account
-              </button>
+          ) : (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: 20, background: PreggaColors.error50, borderRadius: 12, border: `1px solid ${PreggaColors.error100}` }}>
+              <div style={{ width: 44, height: 44, borderRadius: 10, background: PreggaColors.white, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <AlertTriangle size={22} color={PreggaColors.error500} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: PreggaColors.neutral900, margin: "0 0 6px" }}>
+                  Deactivate Doula Account
+                </h3>
+                <p style={{ fontSize: 13, color: PreggaColors.neutral600, margin: "0 0 16px", lineHeight: 1.5 }}>
+                  Deactivating this doula will mark them as unavailable and unassign all linked clients.
+                  They will no longer appear in search results for users. This action can be reversed.
+                </p>
+                <button
+                  onClick={() => setShowDeactivateModal(true)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    borderRadius: 8,
+                    border: `1px solid ${PreggaColors.error400}`,
+                    color: PreggaColors.error600,
+                    background: PreggaColors.white,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = PreggaColors.error50;
+                    e.currentTarget.style.borderColor = PreggaColors.error500;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = PreggaColors.white;
+                    e.currentTarget.style.borderColor = PreggaColors.error400;
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Deactivate Account
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </Card>
       )}
 
