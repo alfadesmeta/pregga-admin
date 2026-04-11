@@ -31,9 +31,8 @@ function getPlanLabel(plan: SubscriptionPlan | null | undefined): string {
   if (!plan) return "Unknown";
   const labels: Record<string, string> = {
     monthly: "Monthly",
-    pregnancy_postpartum: "Pregnancy + Postpartum",
-    yearly: "Yearly",
     six_months: "6 Months",
+    yearly: "Yearly",
   };
   return labels[plan] || plan.replace('_', ' ');
 }
@@ -173,7 +172,7 @@ export function SubscriptionsView({ isMobile, subView, onNavigateToSubView, onGo
           <Input placeholder="Search by user..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} icon={<Search size={16} />} showClear onClear={() => setSearchQuery("")} />
         </div>
         <div style={{ width: 150 }}>
-          <Select value={filters.plan || ""} onChange={(v) => setFilters({ ...filters, plan: v as SubscriptionPlan || undefined })} options={[{ value: "", label: "All Plans" }, { value: "monthly", label: "Monthly" }, { value: "pregnancy_postpartum", label: "Pregnancy + Postpartum" }, { value: "yearly", label: "Yearly" }, { value: "six_months", label: "6 Months" }]} />
+          <Select value={filters.plan || ""} onChange={(v) => setFilters({ ...filters, plan: v as SubscriptionPlan || undefined })} options={[{ value: "", label: "All Plans" }, { value: "monthly", label: "Monthly" }, { value: "six_months", label: "6 Months" }, { value: "yearly", label: "Yearly" }]} />
         </div>
         <div style={{ width: 130 }}>
           <Select value={filters.status || ""} onChange={(v) => setFilters({ ...filters, status: v as SubscriptionStatus || undefined })} options={[{ value: "", label: "All Status" }, { value: "active", label: "Active" }, { value: "trial", label: "Trial" }, { value: "cancelled", label: "Cancelled" }, { value: "expired", label: "Expired" }]} />

@@ -265,9 +265,6 @@ export function AddDoulaModal({ open, onClose }: AddDoulaModalProps) {
                 </div>
               )}
             </div>
-            <p style={{ fontSize: 13, color: PreggaColors.neutral500, marginTop: 16, lineHeight: 1.5 }}>
-              A temporary password will be generated. The doula can sign in with their email and reset their password.
-            </p>
           </div>
         )}
 
