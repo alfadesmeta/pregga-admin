@@ -448,6 +448,15 @@ export async function updateDoulaAvailability(id: string, isAvailable: boolean):
 }
 
 export async function deactivateDoula(id: string): Promise<void> {
+  // First, unassign all linked clients
+  const { error: unassignError } = await supabase
+    .from('doula_assignments')
+    .delete()
+    .eq('doula_id', id);
+
+  if (unassignError) throw unassignError;
+
+  // Then deactivate the doula
   const { error } = await supabase
     .from('doula_profiles')
     .update({ is_available: false })
